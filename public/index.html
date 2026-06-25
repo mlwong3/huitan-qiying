@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>繪壇耆英 · 長者數位畫室</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ============ Navigation: page-turn notepad tabs (§4.3.5) ============ -->
+  <nav class="topbar">
+    <div class="logo">繪壇耆英</div>
+    <div class="nav-tabs">
+      <button class="nav-tab page-single active" data-mode="single">獨畫</button>
+      <button class="nav-tab page-multi" data-mode="multi">共繪</button>
+      <button class="nav-tab page-admin" data-mode="admin">掌櫃</button>
+    </div>
+  </nav>
+
+  <main>
+    <!-- ============ Single home: personal gallery (§9.5) ============ -->
+    <section id="screen-single-home" class="screen active">
+      <h1 class="screen-title">獨畫 · 揀一張紙開始</h1>
+      <div class="gallery-grid" id="single-canvas-grid"></div>
+
+      <h2 class="screen-subtitle">我的作品</h2>
+      <div class="gallery-grid" id="my-works-grid"></div>
+    </section>
+
+    <!-- ============ Multi entry: join / create room (§12) ============ -->
+    <section id="screen-multi-entry" class="screen">
+      <h1 class="screen-title">共繪 · 同親友一齊畫</h1>
+      <div class="multi-entry-box">
+        <div class="entry-card">
+          <h2>加入房間</h2>
+          <input type="text" id="room-code-input" maxlength="4" inputmode="numeric"
+                 placeholder="輸入四位數字" />
+          <button class="big-btn" id="btn-join-room">加入</button>
+        </div>
+        <div class="entry-divider">或</div>
+        <div class="entry-card">
+          <h2>開新房間</h2>
+          <button class="big-btn gold" id="btn-new-room">揀紙開房</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Multi gallery: pick canvas for a new room ============ -->
+    <section id="screen-multi-gallery" class="screen">
+      <h1 class="screen-title">揀一張紙開房</h1>
+      <div class="gallery-grid" id="multi-canvas-grid"></div>
+      <button class="back-btn" data-mode="multi">← 返回</button>
+    </section>
+
+    <!-- ============ Board: shared painting board (§4, §9, §10) ============ -->
+    <section id="screen-board" class="screen">
+      <div class="room-banner" id="room-banner" hidden>房間號碼：<span id="room-id-label"></span></div>
+      <div class="completion-banner" id="completion-banner" hidden>有新作品完成了！</div>
+
+      <div class="board-layout">
+        <!-- Stationery tray sidebar (§6.3) -->
+        <aside class="stationery-tray">
+          <div class="tool-item" data-tool="pen" title="毛筆">
+            <span class="tool-art brush"></span><span class="tool-label">毛筆</span>
+          </div>
+          <div class="tool-item" data-tool="zen" title="禪繞筆">
+            <span class="tool-art pen"></span><span class="tool-label">禪繞</span>
+          </div>
+          <div class="tool-item" data-tool="eraser" title="擦膠">
+            <span class="tool-art eraser"></span><span class="tool-label">擦膠</span>
+          </div>
+          <div class="tool-item" data-tool="mirror" title="鏡子">
+            <span class="tool-art mirror"></span><span class="tool-label">鏡子</span>
+          </div>
+          <div class="tool-item" data-action="clear" title="清空">
+            <span class="tool-art clear"></span><span class="tool-label">清空</span>
+          </div>
+
+          <!-- Seal-pad color selection (§4.3.3) -->
+          <div class="seal-ink-box" id="palette"></div>
+
+          <div class="tray-actions">
+            <button class="big-btn" id="btn-pickup">提筆</button>
+            <button class="big-btn gold" id="btn-finish" hidden>封存作品</button>
+            <button class="back-btn" id="btn-leave-board">← 返回</button>
+          </div>
+        </aside>
+
+        <!-- Window-scape canvas (§4.3.1) -->
+        <div class="board-container">
+          <div class="window-pane">
+            <button id="window-latch" title="清空畫布"></button>
+            <div class="canvas-stack">
+              <img id="board-bg" alt="線稿" hidden />
+              <div id="elements-layer"></div>
+              <canvas id="paint-canvas" width="1200" height="800"></canvas>
+            </div>
+            <div class="windowsill">
+              <!-- Windowsill cat assistant (§4.3.4 / §11) -->
+              <div class="cat" id="cat" title="點我用聲控">
+                <div class="cat-body"></div>
+                <div class="cat-head">
+                  <div class="ear left"></div>
+                  <div class="ear right"></div>
+                  <div class="eye left"><span class="pupil"></span></div>
+                  <div class="eye right"><span class="pupil"></span></div>
+                  <div class="nose"></div>
+                </div>
+                <div class="cat-tail"></div>
+              </div>
+              <div class="cat-bubble" id="cat-bubble" hidden></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Seal ceremony overlay (§4.3.8) -->
+      <div class="seal-ceremony" id="seal-ceremony" hidden>
+        <div class="scroll-paper"><div class="seal-stamp">封</div></div>
+      </div>
+    </section>
+
+    <!-- ============ Admin: line-art management (§13) ============ -->
+    <section id="screen-admin" class="screen">
+      <h1 class="screen-title">掌櫃 · 線稿管理</h1>
+
+      <div id="admin-login" class="admin-login">
+        <input type="password" id="admin-pass" placeholder="輸入掌櫃密碼" />
+        <button class="big-btn" id="btn-admin-login">進入</button>
+        <p class="hint" id="admin-hint"></p>
+      </div>
+
+      <div id="admin-panel" hidden>
+        <form id="upload-form" class="upload-form">
+          <label class="file-pick">
+            <input type="file" id="lineart-file" accept="image/*" />
+            <span>揀圖片</span>
+          </label>
+          <button class="big-btn gold" type="submit">上傳線稿</button>
+          <span id="upload-status" class="hint"></span>
+        </form>
+        <div class="gallery-grid" id="admin-lineart-grid"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

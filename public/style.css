@@ -1,0 +1,491 @@
+/* ===========================================================================
+   繪壇耆英 · New Chinese Style — style.css
+   Engineering Notes v3.1 · §4 Design System
+   =========================================================================== */
+
+:root {
+  /* §4.1 Traditional Chinese color palette */
+  --ink: #1a1a1a;            /* 墨色  */
+  --vermillion: #b83e2f;     /* 朱砂  */
+  --gold: #c9a227;           /* 鎏金  */
+  --rice-paper: #f7f3e9;     /* 宣紙  */
+  --aged-bamboo: #d4c4a8;    /* 竹黃  */
+  --jade: #5a7d6c;           /* 竹青  */
+  --wood: #6b4423;           /* 檀木  */
+  --mountain-mist: #8c8279;  /* 遠山灰 */
+  --window-wood: #4a3728;    /* 窗框木色 */
+  --brass: #c9a227;          /* 黃銅  */
+
+  /* §4.2 Typography */
+  --font: "Noto Serif SC", "KaiTi", "STKaiti", "PMingLiU", serif;
+  --base-size: 22px;
+  --touch: 56px;             /* WCAG 2.1 AAA touch target for older adults */
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font);
+  font-size: var(--base-size);
+  color: var(--ink);
+  background: var(--rice-paper);
+  min-height: 100vh;
+}
+
+/* §4.3.6 Rice-paper dynamic background */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse at center, transparent 55%, rgba(107, 68, 35, 0.06) 100%),
+    repeating-linear-gradient(0deg, rgba(74, 55, 40, 0.018) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(74, 55, 40, 0.018) 0 1px, transparent 1px 4px);
+  background-size: 100% 100%, 100% 100%, 100% 100%;
+  background-color: var(--rice-paper);
+  animation: paper-drift 30s ease-in-out infinite alternate, vignette-pulse 12s ease-in-out infinite;
+  opacity: 1;
+}
+body.drawing-active::before { filter: contrast(1.05); }
+
+@keyframes paper-drift {
+  from { background-position: 0 0, 0 0, 0 0; }
+  to   { background-position: 0 0, 6px 8px, 8px 6px; }
+}
+@keyframes vignette-pulse {
+  0%, 100% { filter: brightness(1); }
+  50%      { filter: brightness(1.015); }
+}
+
+/* ============================ Navigation ================================= */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 64px;
+  padding: 0 24px;
+  background: var(--window-wood);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.logo {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--gold);
+}
+.nav-tabs { display: flex; gap: 10px; perspective: 800px; }
+
+/* §4.3.5 Page-turn navigation tabs */
+.nav-tab {
+  font-family: var(--font);
+  font-size: 22px;
+  font-weight: 600;
+  min-height: var(--touch);
+  padding: 8px 26px;
+  border: none;
+  cursor: pointer;
+  color: var(--ink);
+  background: var(--rice-paper);
+  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.25);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transform-style: preserve-3d;
+}
+.nav-tab.page-single { clip-path: polygon(0 0, 100% 0, 100% 78%, 82% 100%, 0 100%); }
+.nav-tab.page-multi  { padding-left: 34px; padding-right: 34px; }
+.nav-tab.page-admin  { background: var(--wood); color: var(--rice-paper); box-shadow: 4px 4px 10px rgba(0,0,0,0.4); }
+.nav-tab:hover  { transform: rotateY(-3deg) translateZ(10px); }
+.nav-tab.active { transform: translateZ(14px) translateY(-2px); box-shadow: 0 0 0 3px var(--gold), 4px 6px 14px rgba(0,0,0,0.35); }
+
+/* ============================ Screens ==================================== */
+main { padding: 28px; max-width: 1280px; margin: 0 auto; }
+.screen { display: none; animation: fade-in 0.35s ease; }
+.screen.active { display: block; }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.screen-title { font-size: 30px; font-weight: 700; color: var(--wood); margin: 8px 0 22px; }
+.screen-subtitle { font-size: 26px; color: var(--jade); margin: 34px 0 16px; }
+
+/* ============================ Buttons ==================================== */
+.big-btn {
+  font-family: var(--font);
+  font-size: 24px;
+  font-weight: 600;
+  min-height: var(--touch);
+  padding: 12px 30px;
+  border: 2px solid var(--wood);
+  border-radius: 10px;
+  background: var(--aged-bamboo);
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+.big-btn:hover  { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0,0,0,0.28); }
+.big-btn:active { transform: scale(0.97); }
+.big-btn.gold   { background: var(--gold); color: #2a230a; border-color: #8a6f1a; }
+
+.back-btn {
+  font-family: var(--font);
+  font-size: 20px;
+  min-height: var(--touch);
+  padding: 8px 22px;
+  margin-top: 18px;
+  border: 2px solid var(--mountain-mist);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--wood);
+  cursor: pointer;
+}
+.back-btn:hover { background: rgba(0, 0, 0, 0.04); }
+
+/* ============================ Galleries ================================== */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 20px;
+}
+.gallery-card {
+  position: relative;
+  aspect-ratio: 3 / 2;
+  border: 8px solid var(--window-wood);
+  border-radius: 6px;
+  background: #fff
+    repeating-linear-gradient(45deg, var(--window-wood) 0 2px, transparent 2px 8px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gallery-card:hover { transform: translateY(-3px); box-shadow: 0 8px 18px rgba(0,0,0,0.26); }
+.gallery-card img { width: 100%; height: 100%; object-fit: contain; background: var(--rice-paper); }
+.gallery-card .blank-label { font-size: 24px; color: var(--mountain-mist); }
+.gallery-card .card-date {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  font-size: 15px; text-align: center; padding: 4px;
+  background: rgba(247, 243, 233, 0.9); color: var(--wood);
+}
+.gallery-card .del-badge {
+  position: absolute; top: 4px; right: 4px;
+  width: 36px; height: 36px; border-radius: 50%;
+  border: none; cursor: pointer;
+  background: var(--vermillion); color: #fff; font-size: 20px;
+}
+
+/* ============================ Multi entry ================================ */
+.multi-entry-box {
+  display: flex; align-items: center; justify-content: center;
+  gap: 28px; flex-wrap: wrap; margin-top: 30px;
+}
+.entry-card {
+  background: var(--rice-paper);
+  border: 3px solid var(--window-wood);
+  border-radius: 14px;
+  padding: 30px 36px;
+  text-align: center;
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.16);
+}
+.entry-card h2 { font-size: 26px; color: var(--wood); margin: 0 0 18px; }
+.entry-divider { font-size: 24px; color: var(--mountain-mist); }
+#room-code-input {
+  font-family: var(--font);
+  font-size: 34px;
+  letter-spacing: 12px;
+  text-align: center;
+  width: 240px;
+  min-height: var(--touch);
+  padding: 8px;
+  border: 2px solid var(--mountain-mist);
+  border-radius: 10px;
+  margin-bottom: 16px;
+  background: #fff;
+}
+
+/* ============================ Board layout =============================== */
+.board-layout { display: flex; gap: 22px; align-items: flex-start; }
+
+/* §4.3.2 Stationery tray sidebar */
+.stationery-tray {
+  width: 260px;
+  flex: 0 0 260px;
+  background: linear-gradient(160deg, var(--wood), #553619);
+  border-radius: 16px;
+  padding: 18px 16px;
+  box-shadow: inset 0 2px 6px rgba(255,255,255,0.08), 0 6px 18px rgba(0,0,0,0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.tool-item {
+  display: flex; align-items: center; gap: 14px;
+  min-height: var(--touch);
+  padding: 8px 14px;
+  background: var(--rice-paper);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.tool-item:hover  { transform: translateY(-6px) rotate(2deg); box-shadow: 0 8px 16px rgba(0,0,0,0.3); }
+.tool-item.active { transform: rotate(3deg); box-shadow: 0 0 0 3px var(--gold), 0 6px 14px rgba(0,0,0,0.3); animation: bounce-drop 0.4s ease; }
+@keyframes bounce-drop { 0% { transform: translateY(-14px) rotate(3deg); } 60% { transform: translateY(3px) rotate(3deg); } 100% { transform: translateY(0) rotate(3deg); } }
+.tool-label { font-size: 22px; font-weight: 600; color: var(--ink); }
+
+/* Pure-CSS stationery icons */
+.tool-art { position: relative; width: 40px; height: 40px; flex: 0 0 40px; }
+.tool-art.brush::before { /* shaft */
+  content: ""; position: absolute; left: 17px; top: 0; width: 6px; height: 26px;
+  background: linear-gradient(90deg, #7a4a1d, #a9692e); border-radius: 3px;
+}
+.tool-art.brush::after { /* conical tip */
+  content: ""; position: absolute; left: 13px; bottom: 0; width: 14px; height: 16px;
+  background: var(--ink); clip-path: polygon(50% 100%, 0 0, 100% 0); border-radius: 0 0 6px 6px;
+}
+.tool-art.pen::before {
+  content: ""; position: absolute; left: 17px; top: 2px; width: 6px; height: 30px;
+  background: linear-gradient(90deg, #2a4d8f, #3f6fc4); border-radius: 3px;
+}
+.tool-art.pen::after {
+  content: ""; position: absolute; left: 22px; top: 6px; width: 4px; height: 12px;
+  background: var(--gold); border-radius: 2px;
+}
+.tool-art.eraser::before {
+  content: ""; position: absolute; left: 6px; top: 12px; width: 28px; height: 18px;
+  background: linear-gradient(#fff, #e7e0d2); border: 1px solid #c8bda6; border-radius: 5px;
+}
+.tool-art.eraser::after {
+  content: ""; position: absolute; left: 6px; top: 12px; width: 28px; height: 7px;
+  background: var(--vermillion); border-radius: 5px 5px 0 0; opacity: 0.85;
+}
+.tool-art.mirror::before {
+  content: ""; position: absolute; inset: 3px; border-radius: 50%;
+  background: conic-gradient(#ff5b5b, #ffd24d, #6dd36d, #4db8ff, #c06dff, #ff5b5b);
+  filter: saturate(0.7);
+}
+.tool-art.mirror::after {
+  content: ""; position: absolute; inset: 3px; border-radius: 50%;
+  border: 4px solid #cfd3d8; box-shadow: inset 0 0 6px rgba(0,0,0,0.3);
+}
+.tool-art.clear::before {
+  content: "清"; position: absolute; inset: 0; display: flex;
+  align-items: center; justify-content: center; font-size: 24px; color: var(--vermillion);
+}
+
+/* §4.3.3 Seal-ink box palette */
+.seal-ink-box {
+  display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
+  background: linear-gradient(150deg, #6b4423, #3f2814);
+  border-radius: 12px; padding: 14px;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
+}
+.ink-pad {
+  border-radius: 50%; cursor: pointer; border: 2px solid rgba(0,0,0,0.25);
+  position: relative; transition: transform 0.12s ease;
+}
+.ink-pad.primary   { width: 52px; height: 52px; }
+.ink-pad.secondary { width: 40px; height: 40px; }
+.ink-pad.selected  { box-shadow: 0 0 0 3px var(--gold); }
+.ink-pad:active    { transform: scale(0.88); }
+.ink-pad::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background: rgba(255,255,255,0.5); transform: scale(0); opacity: 0;
+}
+.ink-pad.splash::after { animation: ink-splash 0.45s ease-out; }
+@keyframes ink-splash { 0% { transform: scale(0); opacity: 0.6; } 100% { transform: scale(2.5); opacity: 0; } }
+.ink-pad.custom {
+  width: 52px; height: 52px; display: flex; align-items: center; justify-content: center;
+  border: 2px dashed var(--rice-paper); background: transparent; overflow: hidden;
+}
+.ink-pad.custom input { width: 60px; height: 60px; border: none; background: none; cursor: pointer; }
+
+.tray-actions { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
+
+/* §4.3.1 Window-scape canvas */
+.board-container { flex: 1; min-width: 0; }
+.window-pane {
+  position: relative;
+  border: 10px solid var(--window-wood);
+  border-image: repeating-linear-gradient(90deg, #4a3728 0 6px, #5e4631 6px 12px) 10;
+  background: var(--rice-paper);
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 3px #9a9a9a, 0 10px 30px rgba(0,0,0,0.25);
+  padding: 6px;
+}
+#window-latch {
+  position: absolute; top: -6px; left: -6px; z-index: 6;
+  width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+  border: 2px solid #8a6f1a;
+  background: radial-gradient(circle at 35% 30%, #f3d878, var(--brass) 60%, #8a6f1a);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+}
+.canvas-stack {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  background:
+    repeating-linear-gradient(0deg, rgba(0,0,0,0.025) 0 1px, transparent 1px 40px),
+    repeating-linear-gradient(90deg, rgba(0,0,0,0.025) 0 1px, transparent 1px 40px),
+    var(--rice-paper);
+  overflow: hidden;
+}
+.canvas-stack.cleared { background: var(--rice-paper); }
+#board-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+#elements-layer { position: absolute; inset: 0; }
+#paint-canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+#paint-canvas.editing { cursor: crosshair; pointer-events: auto; }
+#paint-canvas:not(.editing) { pointer-events: none; }
+
+/* §10 Board elements */
+.board-element {
+  position: absolute; transform: translate(-50%, -50%);
+  cursor: grab; user-select: none;
+}
+.board-element img { width: 100%; display: block; pointer-events: none; }
+.board-element.resizable-active { outline: 3px solid var(--gold); }
+.board-element.pressing { filter: brightness(0.7); transform: translate(-50%, -50%) scale(0.92); }
+.resize-handle {
+  position: absolute; right: -8px; bottom: -8px;
+  width: 22px; height: 22px; border-radius: 6px;
+  background: var(--jade); border: 2px solid #fff; cursor: nwse-resize; display: none;
+}
+.board-element.resizable-active .resize-handle { display: block; }
+
+/* §4.3.4 Windowsill + cat */
+.windowsill {
+  position: relative; height: 55px; margin-top: 6px;
+  background: linear-gradient(var(--aged-bamboo), #b8a684);
+  border-top: 3px solid #9a9a9a; border-radius: 0 0 4px 4px;
+}
+.cat {
+  position: absolute; right: 24px; bottom: 0; width: 90px; height: 70px;
+  transform: scale(0.8); transform-origin: bottom center; cursor: pointer;
+}
+.cat.listening { animation: cat-listen 0.6s ease infinite alternate; }
+.cat.clicked .cat-body { transform: scaleY(1.3); }
+@keyframes cat-listen { from { transform: scale(0.8); } to { transform: scale(0.84); } }
+.cat-body {
+  position: absolute; bottom: 0; left: 12px; width: 66px; height: 40px;
+  border-radius: 50% 50% 42% 42%;
+  background: repeating-linear-gradient(75deg, #c9923f 0 6px, #b07d31 6px 12px);
+  transition: transform 0.2s ease;
+}
+.cat-head {
+  position: absolute; bottom: 26px; left: 24px; width: 42px; height: 38px;
+  border-radius: 50%;
+  background: repeating-linear-gradient(75deg, #d3a04c 0 5px, #bd8838 5px 10px);
+}
+.ear { position: absolute; top: -8px; width: 0; height: 0; border-left: 9px solid transparent; border-right: 9px solid transparent; border-bottom: 16px solid #bd8838; }
+.ear.left  { left: 2px; transform: rotate(-18deg); }
+.ear.right { right: 2px; transform: rotate(18deg); }
+.eye { position: absolute; top: 14px; width: 12px; height: 12px; background: #fff; border-radius: 50%; overflow: hidden; }
+.eye.left  { left: 8px; }
+.eye.right { right: 8px; }
+.pupil { position: absolute; top: 3px; left: 3px; width: 6px; height: 6px; background: var(--ink); border-radius: 50%; transition: transform 0.05s linear; }
+.cat.listening .eye { height: 14px; width: 14px; }
+.cat.sleeping .eye::after { content: ""; position: absolute; inset: 0; background: #bd8838; }
+.nose { position: absolute; top: 24px; left: 18px; width: 6px; height: 4px; background: var(--vermillion); border-radius: 50%; }
+.cat-tail {
+  position: absolute; bottom: 6px; left: -4px; width: 26px; height: 8px;
+  background: #b07d31; border-radius: 6px; transform-origin: right center;
+}
+.cat.listening .cat-tail { animation: tail-wag 0.4s ease infinite alternate; }
+@keyframes tail-wag { from { transform: rotate(-12deg); } to { transform: rotate(18deg); } }
+
+.cat-bubble {
+  position: absolute; right: 110px; bottom: 24px;
+  max-width: 240px; padding: 12px 16px;
+  background: #fff; border: 2px solid var(--wood); border-radius: 14px;
+  font-size: 20px; color: var(--ink); word-wrap: break-word;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 8;
+}
+.cat-bubble::after {
+  content: ""; position: absolute; right: -12px; bottom: 16px;
+  border: 8px solid transparent; border-left-color: var(--wood);
+}
+
+/* ============================ Banners ==================================== */
+.room-banner {
+  font-size: 24px; color: var(--wood); margin-bottom: 12px;
+  padding: 8px 16px; background: var(--aged-bamboo); border-radius: 8px; display: inline-block;
+}
+.room-banner span { font-weight: 700; letter-spacing: 4px; color: var(--vermillion); }
+.completion-banner {
+  position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+  background: var(--vermillion); color: #fff; font-size: 24px;
+  padding: 14px 34px; border-radius: 30px; z-index: 60;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.3); animation: fade-in 0.35s ease;
+}
+
+/* §4.3.8 Seal ceremony */
+.seal-ceremony {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(26,26,26,0.45);
+}
+.scroll-paper {
+  position: relative; width: 360px; height: 240px;
+  background: var(--rice-paper); border: 4px solid var(--wood); border-radius: 6px;
+  transform: scaleX(0); transform-origin: center;
+  animation: scroll-unroll 0.5s ease forwards, scroll-rollup 0.4s ease forwards 1.6s;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
+@keyframes scroll-unroll { to { transform: scaleX(1); } }
+@keyframes scroll-rollup { to { transform: scaleX(0); } }
+.seal-stamp {
+  position: absolute; top: 50%; left: 50%;
+  width: 90px; height: 90px; margin: -45px 0 0 -45px;
+  background: var(--vermillion); color: #fff;
+  font-size: 44px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px; opacity: 0;
+  animation: seal-drop 0.5s ease forwards 0.5s;
+}
+@keyframes seal-drop {
+  0%   { opacity: 0; transform: translateY(-120px) scale(1.8); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ============================ Admin ====================================== */
+.admin-login, .upload-form { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 24px; }
+#admin-pass, #room-code-input { background: #fff; }
+#admin-pass {
+  font-family: var(--font); font-size: 24px; min-height: var(--touch);
+  padding: 8px 16px; border: 2px solid var(--mountain-mist); border-radius: 10px; width: 240px;
+}
+.file-pick {
+  display: inline-flex; align-items: center; min-height: var(--touch);
+  padding: 8px 22px; border: 2px dashed var(--wood); border-radius: 10px;
+  cursor: pointer; font-size: 22px; color: var(--wood);
+}
+.file-pick input { display: none; }
+.hint { font-size: 18px; color: var(--vermillion); }
+
+/* ============================ §6.2 Responsive ============================ */
+@media (max-width: 1024px) {
+  .stationery-tray { width: 240px; flex-basis: 240px; }
+  .cat { transform: scale(0.75); }
+  .nav-tab:hover { transform: rotateY(-2deg) translateZ(6px); }
+}
+@media (max-width: 768px) {
+  :root { --base-size: 20px; }
+  .board-layout { flex-direction: column; }
+  .stationery-tray {
+    width: 100%; flex-basis: auto; flex-direction: row; flex-wrap: wrap;
+    order: 2; align-items: center;
+  }
+  .tray-actions { flex-direction: row; flex-wrap: wrap; margin: 0; }
+  .cat { transform: scale(0.6); }
+  .nav-tab { padding: 8px 16px; clip-path: none !important; }
+  .nav-tab:hover, .nav-tab.active { transform: translateY(-2px); }
+  .logo { font-size: 24px; }
+  .cat-bubble { max-width: 160px; font-size: 17px; }
+}

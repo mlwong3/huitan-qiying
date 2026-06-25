@@ -1,0 +1,10 @@
+node_modules/
+.env
+uploads/*
+!uploads/.gitkeep
+linearts/*
+!linearts/.gitkeep
+elements/*
+!elements/.gitkeep
+npm-debug.log*
+.DS_Store

@@ -1,0 +1,24 @@
+{
+  "name": "huitan-qiying",
+  "version": "3.1.0",
+  "description": "繪壇耆英 — A real-time collaborative digital painting platform designed for elderly users (New Chinese Style).",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "elderly",
+    "painting",
+    "accessibility",
+    "socket.io",
+    "collaborative"
+  ],
+  "author": "Zhuang Eric",
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "socket.io": "^4.7.2"
+  }
+}
