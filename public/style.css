@@ -212,7 +212,7 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
 }
 
 /* ============================ Board layout =============================== */
-.board-layout { display: flex; gap: 22px; align-items: flex-start; }
+.board-layout { display: flex; gap: 22px; align-items: stretch; }
 
 /* §4.3.2 Stationery tray sidebar */
 .stationery-tray {
@@ -470,22 +470,60 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
 .hint { font-size: 18px; color: var(--vermillion); }
 
 /* ============================ §6.2 Responsive ============================ */
+
+/* Keep the top bar usable on any width: logo shrinks, tabs scroll if needed */
+.topbar { flex-wrap: nowrap; }
+.logo { white-space: nowrap; flex: 0 0 auto; }
+.nav-tabs { flex: 1 1 auto; justify-content: flex-end; min-width: 0; }
+
+/* --- Landscape tablets / small laptops: narrower sidebar (iPad §6.2) --- */
 @media (max-width: 1024px) {
-  .stationery-tray { width: 240px; flex-basis: 240px; }
+  main { padding: 20px; }
+  .stationery-tray { width: 220px; flex: 0 0 220px; }
   .cat { transform: scale(0.75); }
   .nav-tab:hover { transform: rotateY(-2deg) translateZ(6px); }
 }
-@media (max-width: 768px) {
+
+/* --- Phones & portrait tablets: stack canvas on top, tools below --- */
+@media (max-width: 860px) {
   :root { --base-size: 20px; }
-  .board-layout { flex-direction: column; }
+  main { padding: 14px; }
+
+  /* canvas first and full width; tray becomes a horizontal tool bar below */
+  .board-layout { flex-direction: column; align-items: stretch; gap: 14px; }
+  .board-container { order: 1; width: 100%; }
+  .window-pane { max-width: min(100%, 84vh); margin-inline: auto; }
   .stationery-tray {
-    width: 100%; flex-basis: auto; flex-direction: row; flex-wrap: wrap;
-    order: 2; align-items: center;
+    order: 2;
+    width: 100%; flex: 0 0 auto;
+    flex-direction: row; flex-wrap: wrap;
+    align-items: center; justify-content: center;
+    gap: 10px;
   }
-  .tray-actions { flex-direction: row; flex-wrap: wrap; margin: 0; }
-  .cat { transform: scale(0.6); }
-  .nav-tab { padding: 8px 16px; clip-path: none !important; }
+  .tool-item { flex: 1 1 140px; max-width: 220px; }
+  .seal-ink-box { flex: 1 1 100%; }
+  .tray-actions { order: 99; margin: 0; flex-direction: row; flex-wrap: wrap; width: 100%; }
+  .tray-actions .big-btn { flex: 1 1 140px; }
+  .tray-actions .back-btn { flex: 1 1 120px; margin-top: 0; }
+
+  .cat { transform: scale(0.7); }
+  .nav-tab { padding: 8px 18px; clip-path: none !important; }
   .nav-tab:hover, .nav-tab.active { transform: translateY(-2px); }
-  .logo { font-size: 24px; }
-  .cat-bubble { max-width: 160px; font-size: 17px; }
+  .cat-bubble { max-width: 200px; font-size: 18px; }
+
+  /* galleries: comfortable two-up on narrow screens */
+  .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+}
+
+/* --- Small phones --- */
+@media (max-width: 480px) {
+  .topbar { gap: 10px; padding: 0 12px; height: 58px; }
+  .logo { font-size: 22px; letter-spacing: 1px; }
+  .nav-tab { font-size: 18px; padding: 6px 12px; min-height: 48px; }
+  .tool-item { flex-basis: 100%; max-width: none; }
+  .tool-label { font-size: 20px; }
+  .cat-bubble { max-width: 150px; font-size: 16px; }
+  #room-code-input { width: 100%; max-width: 240px; }
+  .multi-entry-box { gap: 16px; }
+  .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
 }
