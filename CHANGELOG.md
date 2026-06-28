@@ -5,6 +5,33 @@
 
 ---
 
+## [3.4.0] — 2026-06-28 · 視線追蹤（階段三）+ 頭部操控修正
+
+### Fixed
+- **頭部操控載入失敗**：MediaPipe `@mediapipe/tasks-vision` 版本 `0.10.22` 於 CDN
+  不存在（404，`Failed to fetch dynamically imported module`）。改用確認可用的 `0.10.20`。
+
+### Added
+- **視線操控（階段三 · 實驗性）** `EyeSource`：WebGazer 3.3.0（CDN，本機運算）
+  以視線位置驅動游標；gaze 較跳，故用較低 cutoff 與較大 dwell 半徑（45px）。
+- 文具盤加「視線操控」開關；與「頭部操控」**互斥**（開一個自動關另一個，共用游標）。
+
+### Changed
+- 抽出共用 **`DwellEngine`**（平滑 + 游標 + dwell 選取 + 發出統一訊號），
+  `HeadSource` 與 `EyeSource` 同享此「共融核心」，只各自負責輸入座標映射。
+
+### Verified
+- `EyeSource` 螢幕→畫布座標映射正確（(300,200)→(600,400)）；dwell 邏輯沿用已驗證的
+  `DwellEngine`。頭／眼互斥切換、鏡頭失敗友善回退皆通過；三檔開關 UI 正常、無 console error。
+
+### Privacy
+- 頭部與視線追蹤全部瀏覽器**本機運算、影像不上傳**。
+
+### Roadmap（未做）
+- 階段四：跨輸入共融共繪（頭控長者 × 觸控孫兒同畫面）。光雕 STL 觸覺輸出。
+
+---
+
 ## [3.3.0] — 2026-06-27 · 共融創作工具（階段一 + 階段二）
 
 ### Added

@@ -58,29 +58,35 @@
   // ------------------------------------------------------------------------ //
   function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
 
-  function HeadSource(opts) {
-    // opts: { rect(), canvasW, canvasH, cursor, ring, video, emit,
-    //         dwellMs, dwellRadius, gain, onState }
-    this.opts = opts;
-    this.pf = new PointFilter(0.5, 0.01); // head signal is jumpier -> smoother
+  function loadScript(src) {
+    return new Promise(function (res, rej) {
+      if (document.querySelector('script[data-src="' + src + '"]')) { res(); return; }
+      var s = document.createElement('script');
+      s.src = src; s.async = true; s.setAttribute('data-src', src);
+      s.onload = function () { res(); };
+      s.onerror = function () { rej(new Error('載入失敗 ' + src)); };
+      document.head.appendChild(s);
+    });
+  }
+
+  // Shared "dwell-to-draw" engine — the inclusive core reused by every
+  // pointing modality. Input: a canvas-space point. It smooths (One Euro),
+  // moves the cursor, runs dwell selection, and emits the unified stream.
+  function DwellEngine(opts) {
+    // opts: { rect(), canvasW, canvasH, cursor, ring, emit,
+    //         dwellMs, dwellRadius, minCutoff, beta, onState }
+    this.o = opts;
+    this.pf = new PointFilter(
+      opts.minCutoff != null ? opts.minCutoff : 0.5,
+      opts.beta != null ? opts.beta : 0.01
+    );
     this.penDown = false;
     this.lastPt = null;
     this.dwellStart = null;
     this.cooldownUntil = 0;
-    this.running = false;
-    this.landmarker = null;
-    this.stream = null;
-    this.raf = null;
   }
-
-  // Core logic — decoupled from the camera so it is unit-testable.
-  // nx, ny: normalised [0,1] face position (already mirrored).
-  HeadSource.prototype.processPoint = function (nx, ny) {
-    var o = this.opts;
-    var gain = o.gain || 1.6;
-    var ax = clamp(0.5 + (nx - 0.5) * gain, 0, 1);
-    var ay = clamp(0.5 + (ny - 0.5) * gain, 0, 1);
-    var cx = ax * o.canvasW, cy = ay * o.canvasH;     // canvas space
+  DwellEngine.prototype.update = function (cx, cy) {
+    var o = this.o;
     var s = this.pf.filter(cx, cy);
 
     if (o.cursor) {
@@ -110,21 +116,38 @@
     this.lastPt = s;
     return s;
   };
-
-  HeadSource.prototype._toggle = function (s) {
+  DwellEngine.prototype._toggle = function (s) {
     this.penDown = !this.penDown;
-    this.opts.emit({ x: s.x, y: s.y, action: this.penDown ? 'down' : 'up' });
-    if (this.opts.cursor) this.opts.cursor.classList.toggle('down', this.penDown);
-    if (this.opts.onState) this.opts.onState(this.penDown);
+    this.o.emit({ x: s.x, y: s.y, action: this.penDown ? 'down' : 'up' });
+    if (this.o.cursor) this.o.cursor.classList.toggle('down', this.penDown);
+    if (this.o.onState) this.o.onState(this.penDown);
+  };
+  DwellEngine.prototype._ring = function (p) {
+    if (this.o.ring) this.o.ring.style.setProperty('--p', p);
+  };
+  DwellEngine.prototype.liftPen = function () {
+    if (this.penDown) { this.o.emit({ x: 0, y: 0, action: 'up' }); this.penDown = false; }
+    this.dwellStart = null;
   };
 
-  HeadSource.prototype._ring = function (p) {
-    if (this.opts.ring) this.opts.ring.style.setProperty('--p', p);
+  // -- HeadSource: MediaPipe FaceLandmarker -> nose landmark -> dwell engine -- //
+  function HeadSource(opts) {
+    this.opts = opts;
+    this.gain = opts.gain || 1.6;
+    this.engine = new DwellEngine(Object.assign({ minCutoff: 0.5, beta: 0.01 }, opts));
+    this.running = false;
+    this.landmarker = null;
+    this.stream = null;
+    this.raf = null;
+  }
+  // Decoupled from the camera so it stays unit-testable. nx,ny: mirrored [0,1].
+  HeadSource.prototype.processPoint = function (nx, ny) {
+    var ax = clamp(0.5 + (nx - 0.5) * this.gain, 0, 1);
+    var ay = clamp(0.5 + (ny - 0.5) * this.gain, 0, 1);
+    return this.engine.update(ax * this.opts.canvasW, ay * this.opts.canvasH);
   };
-
-  // Load MediaPipe lazily (multi-MB) and start the camera + detection loop.
   HeadSource.prototype.start = async function () {
-    var V = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22';
+    var V = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.20';
     var vision = await import(V + '/vision_bundle.mjs');
     var fileset = await vision.FilesetResolver.forVisionTasks(V + '/wasm');
     this.landmarker = await vision.FaceLandmarker.createFromOptions(fileset, {
@@ -140,7 +163,6 @@
     this.running = true;
     this._loop();
   };
-
   HeadSource.prototype._loop = function () {
     if (!this.running) return;
     var v = this.opts.video;
@@ -154,14 +176,53 @@
     var self = this;
     this.raf = requestAnimationFrame(function () { self._loop(); });
   };
-
   HeadSource.prototype.stop = function () {
     this.running = false;
     if (this.raf) cancelAnimationFrame(this.raf);
     if (this.stream) this.stream.getTracks().forEach(function (t) { t.stop(); });
-    if (this.penDown) { this.opts.emit({ x: 0, y: 0, action: 'up' }); this.penDown = false; }
-    this.dwellStart = null;
+    this.engine.liftPen();
   };
 
+  // -- EyeSource: WebGazer gaze (screen px) -> dwell engine (Phase 3) -------- //
+  // Eye gaze is noisier than head pose, so the engine uses a lower cutoff and a
+  // larger dwell radius. Accuracy improves after WebGazer's click-calibration.
+  function EyeSource(opts) {
+    this.opts = opts;
+    this.engine = new DwellEngine(Object.assign(
+      { minCutoff: 0.4, beta: 0.008, dwellRadius: opts.dwellRadius || 45 }, opts
+    ));
+    this.running = false;
+  }
+  // screen px -> canvas space (clamped to the canvas), then the shared engine.
+  EyeSource.prototype.processScreen = function (sx, sy) {
+    var o = this.opts, r = o.rect();
+    var cx = clamp(((sx - r.left) / r.width) * o.canvasW, 0, o.canvasW);
+    var cy = clamp(((sy - r.top) / r.height) * o.canvasH, 0, o.canvasH);
+    return this.engine.update(cx, cy);
+  };
+  EyeSource.prototype.start = async function () {
+    await loadScript('https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.min.js');
+    var wg = window.webgazer;
+    if (!wg) throw new Error('WebGazer 載入失敗');
+    var self = this;
+    wg.setRegression('ridge');
+    wg.showVideoPreview(true).showPredictionPoints(false).showFaceOverlay(false);
+    wg.setGazeListener(function (data) {
+      if (!self.running || !data) return;
+      self.processScreen(data.x, data.y);
+    });
+    await wg.begin();
+    this.running = true;
+  };
+  EyeSource.prototype.stop = function () {
+    this.running = false;
+    this.engine.liftPen();
+    try {
+      if (window.webgazer) { window.webgazer.clearGazeListener(); window.webgazer.end(); }
+    } catch (e) { /* webgazer not started */ }
+  };
+
+  global.DwellEngine = DwellEngine;
   global.HeadSource = HeadSource;
+  global.EyeSource = EyeSource;
 })(window);

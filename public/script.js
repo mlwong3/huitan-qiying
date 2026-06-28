@@ -598,30 +598,36 @@
       });
       syncFilterBtn();
 
-      // 頭部操控 (head tracking) toggle
+      // 頭部 / 視線操控 toggles (mutually exclusive)
       $('#btn-head').addEventListener('click', () => this.toggleHead());
+      $('#btn-eye').addEventListener('click', () => this.toggleEye());
+    },
+
+    // ---- 共融替代輸入：頭部 / 視線（互斥，共用游標）----
+    stopHead() {
+      if (this.headSource) { this.headSource.stop(); this.headSource = null; }
+      const hb = $('#btn-head');
+      hb.classList.remove('on'); hb.setAttribute('aria-checked', 'false');
+      $('#head-cam-wrap').hidden = true;
+    },
+
+    stopEye() {
+      if (this.eyeSource) { this.eyeSource.stop(); this.eyeSource = null; }
+      const eb = $('#btn-eye');
+      eb.classList.remove('on'); eb.setAttribute('aria-checked', 'false');
+    },
+
+    hideCursorIfIdle() {
+      if (!this.headSource && !this.eyeSource) $('#head-cursor').hidden = true;
     },
 
     toggleHead() {
-      const hb = $('#btn-head');
-      const cursor = $('#head-cursor'), camWrap = $('#head-cam-wrap');
-      const hide = () => {
-        hb.classList.remove('on'); hb.setAttribute('aria-checked', 'false');
-        cursor.hidden = true; camWrap.hidden = true;
-      };
-      // already running -> turn off
-      if (this.headSource && this.headSource.running) {
-        this.headSource.stop();
-        this.headSource = null;
-        hide();
-        catLogic.say('頭部操控閂咗');
-        return;
-      }
+      if (this.headSource) { this.stopHead(); this.hideCursorIfIdle(); catLogic.say('頭部操控閂咗'); return; }
       if (!window.HeadSource || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        alert('呢部裝置／瀏覽器唔支援頭部操控（需要鏡頭）');
-        return;
+        alert('呢部裝置／瀏覽器唔支援頭部操控（需要鏡頭）'); return;
       }
-      const canvas = painter.canvas;
+      this.stopEye(); // mutually exclusive
+      const canvas = painter.canvas, cursor = $('#head-cursor'), hb = $('#btn-head');
       this.headSource = new HeadSource({
         rect: () => canvas.getBoundingClientRect(),
         canvasW: canvas.width, canvasH: canvas.height,
@@ -632,12 +638,36 @@
       });
       if (!painter.editing) painter.openCanvas();
       hb.classList.add('on'); hb.setAttribute('aria-checked', 'true');
-      cursor.hidden = false; camWrap.hidden = false;
+      cursor.hidden = false; $('#head-cam-wrap').hidden = false;
       catLogic.say('開緊鏡頭，望住畫面郁下個頭嚟控制');
       this.headSource.start().catch((err) => {
-        this.headSource = null;
-        hide();
+        this.stopHead(); this.hideCursorIfIdle();
         alert('無法開啟鏡頭：' + (err && err.message ? err.message : err));
+      });
+    },
+
+    toggleEye() {
+      if (this.eyeSource) { this.stopEye(); this.hideCursorIfIdle(); catLogic.say('視線操控閂咗'); return; }
+      if (!window.EyeSource || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert('呢部裝置／瀏覽器唔支援視線操控（需要鏡頭）'); return;
+      }
+      this.stopHead(); // mutually exclusive
+      const canvas = painter.canvas, cursor = $('#head-cursor'), eb = $('#btn-eye');
+      this.eyeSource = new EyeSource({
+        rect: () => canvas.getBoundingClientRect(),
+        canvasW: canvas.width, canvasH: canvas.height,
+        cursor, ring: $('#head-ring'),
+        emit: (sig) => painter.feed(sig),
+        dwellMs: 1100, dwellRadius: 45,
+        onState: (down) => catLogic.say(down ? '落筆喇，望住邊度就畫邊度' : '提起筆喇'),
+      });
+      if (!painter.editing) painter.openCanvas();
+      eb.classList.add('on'); eb.setAttribute('aria-checked', 'true');
+      cursor.hidden = false;
+      catLogic.say('視線操控係實驗功能，開緊鏡頭，望住畫面試下');
+      this.eyeSource.start().catch((err) => {
+        this.stopEye(); this.hideCursorIfIdle();
+        alert('無法開啟視線操控：' + (err && err.message ? err.message : err));
       });
     },
 
