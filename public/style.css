@@ -20,7 +20,12 @@
   --font: "Noto Serif SC", "KaiTi", "STKaiti", "PMingLiU", serif;
   --base-size: 22px;
   --touch: 56px;             /* WCAG 2.1 AAA touch target for older adults */
-  --figma-entry-bg: url("assets/figma-new-chinese-bg.png");
+  --figma-entry-bg: -webkit-image-set(
+      url("assets/figma-new-chinese-bg.webp") type("image/webp"),
+      url("assets/figma-new-chinese-bg.png") type("image/png"));
+  --figma-entry-bg: image-set(
+      url("assets/figma-new-chinese-bg.webp") type("image/webp"),
+      url("assets/figma-new-chinese-bg.png") type("image/png"));
 }
 
 * { box-sizing: border-box; }

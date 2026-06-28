@@ -6,16 +6,25 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const rateLimit = require('express-rate-limit');
 const { Server } = require('socket.io');
+const storage = require('./storage');
 
 const app = express();
+app.set('trust proxy', 1); // behind Cloud Run's proxy — needed for rate-limit IPs
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
 
 const PORT = process.env.PORT || 3000;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '8888'; // server.js:10 — see Security §14
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '8888';
 
-// --- 1. Ensure required directories exist ---------------------------------
+// CORS allowlist — same-origin in production; localhost for dev. '*' only if
+// ALLOWED_ORIGINS is unset (keeps local development frictionless).
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+  .split(',').map((s) => s.trim()).filter(Boolean);
+const corsOrigin = ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : true;
+const io = new Server(server, { cors: { origin: corsOrigin } });
+
+// --- 1. Ensure local fallback directories exist (disk mode only) ----------
 const DIRS = {
   public: path.join(__dirname, 'public'),
   linearts: path.join(__dirname, 'linearts'),
@@ -26,53 +35,56 @@ for (const dir of Object.values(DIRS)) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
-// --- 2. Multer disk storage with UTF-8 filename decoding -------------------
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, DIRS.linearts),
-  filename: (req, file, cb) => {
-    // Decode mojibake'd Chinese filenames (§16.2)
-    const utf8Name = Buffer.from(file.originalname, 'latin1').toString('utf8');
-    cb(null, `${Date.now()}-${utf8Name}`);
-  },
-});
+// --- 2. Multer memory storage (buffer handed to the storage layer) --------
 const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB (Security §14.2 recommendation)
-  fileFilter: (req, file, cb) => {
-    if (/^image\//.test(file.mimetype)) cb(null, true);
-    else cb(null, false);
-  },
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => cb(null, /^image\//.test(file.mimetype)),
 });
 
 // --- 3. Middleware ---------------------------------------------------------
 app.use(express.json());
-app.use(express.static(DIRS.public));
-app.use('/linearts', express.static(DIRS.linearts));
+// Long-cache the static asset bundle (fonts/backgrounds) before the general
+// static handler so the 7-day rule wins for /assets.
+app.use('/assets', express.static(path.join(DIRS.public, 'assets'), { maxAge: '7d', immutable: true }));
+app.use(express.static(DIRS.public, { maxAge: '1h' }));
+app.use('/linearts', express.static(DIRS.linearts, { maxAge: '1d' })); // disk-mode fallback
+
+// Rate limiting (Security §14.2). Generous for general API, stricter for admin.
+const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false });
+const adminLimiter = rateLimit({ windowMs: 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false });
+app.use('/api/', apiLimiter);
+app.use(['/api/admin', '/api/upload'], adminLimiter);
 
 // --- 7. API specification --------------------------------------------------
-const IMAGE_RE = /\.(png|jpe?g|gif|webp|svg)$/i;
-
-// 7.1 GET /api/linearts
-app.get('/api/linearts', (req, res) => {
-  fs.readdir(DIRS.linearts, (err, files) => {
-    if (err) return res.json([]);
-    res.json(files.filter((f) => IMAGE_RE.test(f)));
-  });
+// 7.1 GET /api/linearts -> [{ name, url }]
+app.get('/api/linearts', async (req, res) => {
+  try {
+    res.json(await storage.list());
+  } catch (e) {
+    res.json([]);
+  }
 });
 
 // 7.2 POST /api/upload/lineart
-app.post('/api/upload/lineart', upload.single('file'), (req, res) => {
+app.post('/api/upload/lineart', upload.single('file'), async (req, res) => {
   if (req.body.password !== ADMIN_PASSWORD) {
-    if (req.file) fs.unlink(path.join(DIRS.linearts, req.file.filename), () => {});
     return res.status(403).json({ success: false, msg: '密碼錯誤' });
   }
   if (!req.file) return res.status(400).json({ success: false, msg: '請選擇圖片檔案' });
-  io.emit('refresh_linearts');
-  res.json({ success: true });
+  try {
+    const utf8Name = Buffer.from(req.file.originalname, 'latin1').toString('utf8'); // §16.2
+    const safe = utf8Name.replace(/[/\\]/g, '_');
+    const saved = await storage.save(req.file.buffer, `${Date.now()}-${safe}`, req.file.mimetype);
+    io.emit('refresh_linearts');
+    res.json({ success: true, file: saved });
+  } catch (e) {
+    res.status(500).json({ success: false, msg: '上傳失敗' });
+  }
 });
 
 // 7.3 POST /api/admin/delete/lineart
-app.post('/api/admin/delete/lineart', (req, res) => {
+app.post('/api/admin/delete/lineart', async (req, res) => {
   const { password, filename } = req.body;
   if (password !== ADMIN_PASSWORD) {
     return res.status(403).json({ success: false, msg: '密碼錯誤' });
@@ -81,12 +93,10 @@ app.post('/api/admin/delete/lineart', (req, res) => {
   if (!filename || filename.includes('/') || filename.includes('..') || filename.includes('\\')) {
     return res.status(400).json({ success: false, msg: '非法檔名' });
   }
-  const target = path.join(DIRS.linearts, filename);
-  fs.unlink(target, (err) => {
-    if (err) return res.status(404).json({ success: false, msg: '檔案不存在' });
-    io.emit('refresh_linearts');
-    res.json({ success: true });
-  });
+  const ok = await storage.remove(filename);
+  if (!ok) return res.status(404).json({ success: false, msg: '檔案不存在' });
+  io.emit('refresh_linearts');
+  res.json({ success: true });
 });
 
 // 7.4 POST /api/admin/check

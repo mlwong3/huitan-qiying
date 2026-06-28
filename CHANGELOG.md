@@ -5,6 +5,34 @@
 
 ---
 
+## [3.6.0] — 2026-06-28 · 持久化儲存、安全與效能優化
+
+### Added
+- **Firebase Storage 線稿持久化** `storage.js`：以 firebase-admin（Application Default
+  Credentials）讀寫 GCS bucket；設定 `STORAGE_BUCKET` 即啟用，否則回退本機磁碟（方便開發）。
+  上傳的線稿不再因重新部署而消失。`/api/linearts` 改回傳 `{ name, url }`。
+- **速率限制**（`express-rate-limit`）：一般 API 每分鐘 120 次，掌櫃／上傳每分鐘 20 次。
+- **CORS 收緊**：Socket.IO／Express 來源改為 `ALLOWED_ORIGINS` 白名單（未設時才放寬，方便本機）。
+- **WebP 背景圖**：`figma-new-chinese-bg.webp`（2.36 MB → 119 KB，細 95%），CSS 以
+  `image-set` 優先載入 WebP、PNG 後備。
+- **快取標頭**：`/assets` 7 天 immutable、其餘靜態 1 小時。
+- **冒煙測試** `test/smoke.test.js`（`npm test`，node:test）：API 形狀、掌櫃驗證、
+  路徑穿越防護、上傳→列出→刪除往返，5 項全綠。
+
+### Changed
+- 掌櫃密碼改由 `ADMIN_PASSWORD` 環境變數提供（線上已設非預設值，不再公開使用 `8888`）。
+- Multer 改用記憶體儲存，交由 `storage` 層寫入 bucket 或磁碟。
+
+### Deployment
+- 建立公開讀取 GCS bucket `huitan-qiying-linearts`（asia-east1），授予 Cloud Run 執行
+  服務帳戶寫入權限；部署設定 `STORAGE_BUCKET / ADMIN_PASSWORD / ALLOWED_ORIGINS`。
+
+### Known / Roadmap
+- 房間狀態仍存記憶體（共繪設計為短期）；如需永久作品庫可再接 Firestore。
+- 精準對齊 Figma 設計受 Figma Starter 方案 MCP 呼叫上限所限，待方案升級或匯出資產。
+
+---
+
 ## [3.5.0] — 2026-06-28 · 共融創作及身心健康平台
 
 ### Added

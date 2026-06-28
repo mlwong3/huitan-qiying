@@ -1370,16 +1370,17 @@
       return card;
     },
 
-    lineartCard(filename) {
+    lineartCard(item) {
+      // item is { name, url } from the API (string accepted for back-compat)
+      const url = typeof item === 'string' ? '/linearts/' + encodeURIComponent(item) : item.url;
       const card = document.createElement('div');
       card.className = 'gallery-card';
       const img = document.createElement('img');
-      img.src = '/linearts/' + encodeURIComponent(filename);
+      img.src = url;
       card.appendChild(img);
       card.addEventListener('click', () => {
-        const src = '/linearts/' + encodeURIComponent(filename);
-        if (this.mode === 'multi') this.createRoom(src);
-        else this.openBoard(src);
+        if (this.mode === 'multi') this.createRoom(url);
+        else this.openBoard(url);
       });
       return card;
     },
@@ -1447,14 +1448,16 @@
       fetch('/api/linearts').then((r) => r.json()).then((files) => {
         grid.innerHTML = '';
         files.forEach((f) => {
+          const name = typeof f === 'string' ? f : f.name;
+          const url = typeof f === 'string' ? '/linearts/' + encodeURIComponent(f) : f.url;
           const card = document.createElement('div');
           card.className = 'gallery-card';
           const img = document.createElement('img');
-          img.src = '/linearts/' + encodeURIComponent(f);
+          img.src = url;
           const del = document.createElement('button');
           del.className = 'del-badge';
           del.textContent = '×';
-          del.addEventListener('click', () => this.deleteLineart(f));
+          del.addEventListener('click', () => this.deleteLineart(name));
           card.appendChild(img);
           card.appendChild(del);
           grid.appendChild(card);
