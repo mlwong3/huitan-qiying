@@ -95,7 +95,7 @@ app.post('/api/admin/check', (req, res) => {
 });
 
 // --- 5.2 / 12. In-memory room state & Socket.IO protocol -------------------
-// rooms: { roomId: { id, bgImage, elements: [{id, img, x, y, width, date}] } }
+// rooms: { roomId: { id, bgImage, elements: [{id, img, x, y, width, date, metadata...}] } }
 const rooms = {};
 
 function makeRoomId() {
@@ -128,17 +128,25 @@ io.on('connection', (socket) => {
     socket.emit('init_room', { id: room.id, bgImage: room.bgImage, elements: room.elements });
   });
 
-  // add_element { roomId, image: dataURL }
-  socket.on('add_element', ({ roomId, image } = {}) => {
+  // add_element { roomId, image: dataURL } or { roomId, element }
+  socket.on('add_element', ({ roomId, image, element } = {}) => {
     const room = rooms[roomId];
-    if (!room || !image) return;
+    if (!room || (!image && !element)) return;
+    const source = element || {};
+    const img = source.img || image;
+    if (!img) return;
     const el = {
       id: Date.now() + Math.floor(Math.random() * 1000),
-      img: image,
-      x: 50,
-      y: 50,
-      width: 30,
-      date: chineseDate(),
+      img,
+      x: safePercent(source.x, 50),
+      y: safePercent(source.y, 50),
+      width: safeWidth(source.width, 30),
+      date: source.date || chineseDate(),
+      elementType: safeText(source.elementType, 30),
+      elementName: safeText(source.elementName, 30),
+      colorName: safeText(source.colorName, 20),
+      colorHex: safeHex(source.colorHex),
+      source: safeText(source.source, 20),
     };
     room.elements.push(el);
     io.to(roomId).emit('element_added', el);
@@ -172,6 +180,18 @@ io.on('connection', (socket) => {
     room.elements = room.elements.filter((e) => e.id !== id);
     io.to(roomId).emit('element_deleted', id);
   });
+
+  // §共融 Phase 4: live cursor presence — x,y are canvas percentages (0-100),
+  // kind is the input modality (touch | head | eye). Broadcast to room peers.
+  socket.on('cursor', ({ roomId, x, y, kind, down } = {}) => {
+    if (!roomId || !rooms[roomId]) return;
+    socket.to(roomId).emit('peer_cursor', { id: socket.id, x, y, kind, down: !!down });
+  });
+
+  socket.on('disconnect', () => {
+    const roomId = socket.data.roomId;
+    if (roomId) socket.to(roomId).emit('peer_left', socket.id);
+  });
 });
 
 // Chinese calendar date string, e.g. 二〇二六年六月十七日
@@ -188,6 +208,27 @@ function chineseDate(d = new Date()) {
     return '三十' + digits[day - 30];
   };
   return `${toCn(d.getFullYear())}年${monthCn(d.getMonth() + 1)}月${dayCn(d.getDate())}日`;
+}
+
+function safePercent(v, fallback) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.min(100, n));
+}
+
+function safeWidth(v, fallback) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(5, Math.min(90, n));
+}
+
+function safeText(v, max) {
+  if (typeof v !== 'string') return '';
+  return v.slice(0, max);
+}
+
+function safeHex(v) {
+  return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v : '';
 }
 
 server.listen(PORT, () => {

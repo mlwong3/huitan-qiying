@@ -26,8 +26,36 @@
 
   const ZEN_PATTERNS = ['dot', 'grid', 'line', 'circle'];
 
+  // §共融: input-modality labels + stable per-peer colour
+  const INPUT_LABELS = { touch: '觸控', scan: '單鍵' };
+  function peerColor(id) {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 360;
+    return 'hsl(' + h + ', 62%, 45%)';
+  }
+
   // §9.4 encouragement phrases
   const PRAISES = ['畫得真好！', '好有創意啊！', '這線條很美！', '很有藝術感！', '繼續加油！'];
+
+  const SCAN_ELEMENTS = [
+    { key: 'flower', name: '花朵', short: '花' },
+    { key: 'leaf', name: '葉子', short: '葉' },
+    { key: 'circle', name: '圓形', short: '圓' },
+    { key: 'line', name: '線條', short: '線' },
+    { key: 'seal', name: '印章', short: '印' },
+  ];
+
+  const SCAN_COLORS = [
+    { key: 'red', name: '紅色', hex: '#b22222', tone: 196 },
+    { key: 'blue', name: '藍色', hex: '#1e90ff', tone: 880 },
+    { key: 'green', name: '綠色', hex: '#228b22', tone: 440 },
+    { key: 'black', name: '黑色', hex: '#000000', tone: 110 },
+    { key: 'gold', name: '金色', hex: '#c9a227', tone: 1046 },
+  ];
+
+  const JOYSTICK_STEP = 6;
+  const JOYSTICK_FINE_STEP = 2;
+  const DEFAULT_SCAN_POSITION = { key: 'free', x: 50, y: 50, name: '畫面中央' };
 
   // ====================================================================== //
   //  Painter (§9)
@@ -92,11 +120,13 @@
         this.isDrawing = true;
         if (this.filterEnabled && this.pf) this.pf.reset();
         this.lastPos = this.smooth(signal.x, signal.y);
+        if (this.onMove) this.onMove(this.lastPos, true);
         return;
       }
       if (signal.action === 'up') {
         if (this.isDrawing) this.endStroke();
         this.isDrawing = false;
+        if (this.onMove) this.onMove(this.lastPos, false);
         return;
       }
       // move
@@ -107,6 +137,7 @@
         this.line(this.mirror(this.lastPos), this.mirror(p));
       }
       this.lastPos = p;
+      if (this.onMove) this.onMove(p, true);
     },
 
     // Apply One Euro Filter when enabled; otherwise pass the raw coordinate.
@@ -243,6 +274,10 @@
     return `rgb(${r},${g},${b})`;
   }
 
+  function numberLabel(n) {
+    return ['零', '第一', '第二', '第三', '第四'][n] || String(n);
+  }
+
   // ====================================================================== //
   //  Cat voice assistant (§11)
   // ====================================================================== //
@@ -366,6 +401,432 @@
   };
 
   // ====================================================================== //
+  //  Feedback layer: speech + simple colour sonification
+  // ====================================================================== //
+  const feedbackLayer = {
+    audioCtx: null,
+
+    say(text, speak = true) {
+      catLogic.say(text, speak);
+    },
+
+    tone(colorKey) {
+      const color = SCAN_COLORS.find((c) => c.key === colorKey);
+      if (!color) return;
+      try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        if (!this.audioCtx) this.audioCtx = new Ctx();
+        const ctx = this.audioCtx;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = color.key === 'black' ? 'sine' : 'triangle';
+        osc.frequency.value = color.tone;
+        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.28);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.3);
+      } catch (e) {
+        // Audio feedback is optional; speech remains the primary cue.
+      }
+    },
+  };
+
+  // ====================================================================== //
+  //  Assistive input manager: one-switch intents for scanning mode
+  // ====================================================================== //
+  const assistiveInput = {
+    init() {
+      document.addEventListener('keydown', (e) => {
+        if (!scanController.active) return;
+        const arrows = {
+          ArrowUp: { dx: 0, dy: -1 },
+          ArrowDown: { dx: 0, dy: 1 },
+          ArrowLeft: { dx: -1, dy: 0 },
+          ArrowRight: { dx: 1, dy: 0 },
+        };
+        if (arrows[e.key]) {
+          e.preventDefault();
+          const unit = e.shiftKey ? JOYSTICK_FINE_STEP : JOYSTICK_STEP;
+          this.emit({
+            type: 'move',
+            dx: arrows[e.key].dx * unit,
+            dy: arrows[e.key].dy * unit,
+            source: 'keyboard',
+          });
+        } else if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault();
+          this.emit({ type: 'confirm', source: 'keyboard' });
+        } else if (e.key === 'Escape' || e.key === 'Backspace') {
+          e.preventDefault();
+          this.emit({ type: 'back', source: 'keyboard' });
+        }
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!scanController.active) return;
+        if (e.target.closest('#btn-scan-mode')) return;
+        if (e.target.closest('.scan-option, #scan-confirm, .joystick-key')) return;
+        if (e.target.closest('#scan-panel, .canvas-stack')) {
+          e.preventDefault();
+          this.emit({ type: 'confirm', source: 'pointer' });
+        }
+      }, true);
+    },
+
+    emit(intent) {
+      if (scanController.active) scanController.handleIntent(intent);
+    },
+  };
+
+  window.huitanAssistiveInput = {
+    move(dx, dy) { assistiveInput.emit({ type: 'move', dx, dy, source: 'external' }); },
+    confirm() { assistiveInput.emit({ type: 'confirm', source: 'external' }); },
+    back() { assistiveInput.emit({ type: 'back', source: 'external' }); },
+    command(name) { assistiveInput.emit({ type: 'command', command: name, source: 'external' }); },
+  };
+
+  // ====================================================================== //
+  //  Single-switch scanning + element creation mode
+  // ====================================================================== //
+  const scanController = {
+    active: false,
+    stepIndex: 0,
+    optionIndex: 0,
+    timer: null,
+    selections: {},
+    placement: { x: 50, y: 50 },
+    steps: ['element', 'color', 'position', 'confirm'],
+    stepNames: {
+      element: '選圖元',
+      color: '選顏色',
+      position: '選位置',
+      confirm: '確認放置',
+    },
+
+    init() {
+      this.panel = $('#scan-panel');
+      this.optionsBox = $('#scan-options');
+      this.stepLabel = $('#scan-step-label');
+      this.hint = $('#scan-hint');
+      this.preview = $('#scan-placement-preview');
+      $('#scan-confirm').addEventListener('click', () => this.handleIntent({ type: 'confirm', source: 'button' }));
+    },
+
+    start() {
+      this.active = true;
+      this.stepIndex = 0;
+      this.optionIndex = 0;
+      this.selections = {};
+      this.placement = { x: DEFAULT_SCAN_POSITION.x, y: DEFAULT_SCAN_POSITION.y };
+      this.panel.hidden = false;
+      document.body.classList.add('scan-active');
+      this.syncButton();
+      this.render();
+      this.restartTimer();
+      feedbackLayer.say('單鍵創作開始。先掃描選圖元和顏色，再用方向鍵控制位置，按空白鍵或 Enter 確認。');
+    },
+
+    stop(announce = true) {
+      this.active = false;
+      clearInterval(this.timer);
+      this.timer = null;
+      this.panel.hidden = true;
+      this.hidePlacementPreview();
+      document.body.classList.remove('scan-active');
+      this.syncButton();
+      if (announce) feedbackLayer.say('單鍵創作已關閉');
+    },
+
+    toggle() {
+      if (this.active) this.stop();
+      else this.start();
+    },
+
+    syncButton() {
+      const btn = $('#btn-scan-mode');
+      btn.classList.toggle('on', this.active);
+      btn.setAttribute('aria-checked', this.active ? 'true' : 'false');
+    },
+
+    restartTimer() {
+      clearInterval(this.timer);
+      if (this.currentStep() === 'position') {
+        this.timer = null;
+        return;
+      }
+      this.timer = setInterval(() => this.next(), 1450);
+    },
+
+    next() {
+      const options = this.optionsForStep();
+      if (!options.length) return;
+      this.optionIndex = (this.optionIndex + 1) % options.length;
+      this.render();
+    },
+
+    handleIntent(intent) {
+      if (intent.type === 'back') return this.back();
+      if (intent.type === 'next') return this.next();
+      if (intent.type === 'move') return this.movePlacement(intent.dx, intent.dy);
+      if (intent.type === 'confirm') return this.confirmCurrent();
+    },
+
+    back() {
+      if (this.stepIndex === 0) return this.stop();
+      this.stepIndex -= 1;
+      this.optionIndex = 0;
+      this.render();
+      this.restartTimer();
+      feedbackLayer.say('返回' + this.stepNames[this.currentStep()]);
+    },
+
+    currentStep() {
+      return this.steps[this.stepIndex];
+    },
+
+    optionsForStep() {
+      const step = this.currentStep();
+      if (step === 'element') return SCAN_ELEMENTS;
+      if (step === 'color') return SCAN_COLORS;
+      if (step === 'position') return [];
+      return [{ key: 'place', name: '放置圖元' }];
+    },
+
+    render() {
+      const step = this.currentStep();
+      const options = this.optionsForStep();
+      this.stepLabel.textContent = this.stepNames[step];
+      this.hint.textContent = step === 'position'
+        ? '用方向鍵移動圖示，Enter／空白鍵確認位置'
+        : '按空白鍵、Enter 或點擊畫面確認';
+      this.optionsBox.innerHTML = '';
+      this.optionsBox.className = 'scan-options scan-step-' + step;
+
+      if (step === 'position') {
+        this.renderPositionControl();
+        this.showPlacementPreview();
+        return;
+      }
+
+      this.hidePlacementPreview();
+
+      options.forEach((opt, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'scan-option';
+        btn.classList.toggle('active', i === this.optionIndex);
+        btn.dataset.key = opt.key;
+        btn.type = 'button';
+        btn.appendChild(this.optionVisual(step, opt));
+        const label = document.createElement('span');
+        label.textContent = step === 'confirm' ? this.summaryText() : opt.name;
+        btn.appendChild(label);
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          this.optionIndex = i;
+          this.confirmCurrent();
+        });
+        this.optionsBox.appendChild(btn);
+      });
+    },
+
+    optionVisual(step, opt) {
+      const visual = document.createElement('span');
+      visual.className = 'scan-visual';
+      if (step === 'color') {
+        visual.classList.add('color');
+        visual.style.background = opt.hex;
+      } else if (step === 'position') {
+        visual.classList.add('position');
+        visual.textContent = opt.row + '-' + opt.col;
+      } else if (step === 'confirm') {
+        visual.classList.add('confirm');
+        visual.textContent = '放';
+      } else {
+        visual.classList.add('element');
+        visual.textContent = opt.short;
+      }
+      return visual;
+    },
+
+    confirmCurrent() {
+      const step = this.currentStep();
+      const option = this.optionsForStep()[this.optionIndex];
+      if (!option && step !== 'position') return;
+
+      if (step === 'element') {
+        this.selections.element = option;
+        feedbackLayer.say('你選擇了' + option.name);
+        return this.advance();
+      }
+      if (step === 'color') {
+        this.selections.color = option;
+        feedbackLayer.tone(option.key);
+        feedbackLayer.say('你選擇了' + option.name);
+        return this.advance();
+      }
+      if (step === 'position') {
+        this.selections.position = this.currentPosition();
+        feedbackLayer.say('位置已確認，' + this.selections.position.name);
+        this.hidePlacementPreview();
+        return this.advance();
+      }
+
+      app.placeScanElement(this.selections);
+      this.stepIndex = 0;
+      this.optionIndex = 0;
+      this.selections = {};
+      this.placement = { x: DEFAULT_SCAN_POSITION.x, y: DEFAULT_SCAN_POSITION.y };
+      this.hidePlacementPreview();
+      this.render();
+      this.restartTimer();
+    },
+
+    advance() {
+      this.stepIndex = Math.min(this.stepIndex + 1, this.steps.length - 1);
+      this.optionIndex = 0;
+      this.render();
+      this.restartTimer();
+    },
+
+    summaryText() {
+      const el = this.selections.element && this.selections.element.name;
+      const color = this.selections.color && this.selections.color.name;
+      const pos = this.selections.position && this.selections.position.name;
+      return '放下' + (color || '') + (el || '圖元') + (pos ? '於' + pos : '');
+    },
+
+    renderPositionControl() {
+      const wrap = document.createElement('div');
+      wrap.className = 'joystick-panel';
+      wrap.innerHTML = '';
+
+      const pad = document.createElement('div');
+      pad.className = 'joystick-pad';
+      const buttons = [
+        { cls: 'up', label: '上', dx: 0, dy: -JOYSTICK_STEP },
+        { cls: 'left', label: '左', dx: -JOYSTICK_STEP, dy: 0 },
+        { cls: 'center', label: '位置', dx: 0, dy: 0 },
+        { cls: 'right', label: '右', dx: JOYSTICK_STEP, dy: 0 },
+        { cls: 'down', label: '下', dx: 0, dy: JOYSTICK_STEP },
+      ];
+      buttons.forEach((b) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'joystick-key ' + b.cls;
+        btn.textContent = b.label;
+        if (b.cls !== 'center') {
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.movePlacement(b.dx, b.dy);
+          });
+        }
+        pad.appendChild(btn);
+      });
+
+      const readout = document.createElement('p');
+      readout.className = 'joystick-readout';
+      readout.textContent = this.currentPosition().name;
+
+      wrap.appendChild(pad);
+      wrap.appendChild(readout);
+      this.optionsBox.appendChild(wrap);
+    },
+
+    movePlacement(dx, dy) {
+      if (this.currentStep() !== 'position') return;
+      const nextX = Math.max(6, Math.min(94, this.placement.x + (Number(dx) || 0)));
+      const nextY = Math.max(6, Math.min(94, this.placement.y + (Number(dy) || 0)));
+      this.placement = { x: nextX, y: nextY };
+      this.render();
+      feedbackLayer.say(this.currentPosition().name, false);
+    },
+
+    currentPosition() {
+      const x = Math.round(this.placement.x);
+      const y = Math.round(this.placement.y);
+      const horizontal = x < 34 ? '左方' : x > 66 ? '右方' : '中央';
+      const vertical = y < 34 ? '上方' : y > 66 ? '下方' : '中間';
+      return {
+        key: 'free-' + x + '-' + y,
+        x,
+        y,
+        name: vertical + horizontal + '，X ' + x + '，Y ' + y,
+      };
+    },
+
+    showPlacementPreview() {
+      if (!this.preview || !this.selections.element || !this.selections.color) return;
+      this.preview.hidden = false;
+      this.preview.style.left = this.placement.x + '%';
+      this.preview.style.top = this.placement.y + '%';
+      this.preview.style.backgroundImage = 'url("' + elementDataUrl(this.selections.element.key, this.selections.color.hex) + '")';
+      this.preview.setAttribute('aria-label', this.currentPosition().name);
+    },
+
+    hidePlacementPreview() {
+      if (!this.preview) return;
+      this.preview.hidden = true;
+      this.preview.style.backgroundImage = '';
+    },
+  };
+
+  function elementDataUrl(type, color) {
+    const safeColor = color || '#000000';
+    const svg = elementSvg(type, safeColor);
+    return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+  }
+
+  function elementSvg(type, color) {
+    const stroke = color === '#000000' ? '#1a1a1a' : shade(color, -25);
+    const common = 'fill="' + color + '" stroke="' + stroke + '" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"';
+    let body = '';
+    if (type === 'flower') {
+      body = [
+        '<circle cx="100" cy="55" r="34" ' + common + '/>',
+        '<circle cx="145" cy="100" r="34" ' + common + '/>',
+        '<circle cx="100" cy="145" r="34" ' + common + '/>',
+        '<circle cx="55" cy="100" r="34" ' + common + '/>',
+        '<circle cx="100" cy="100" r="28" fill="#f7f3e9" stroke="' + stroke + '" stroke-width="7"/>',
+      ].join('');
+    } else if (type === 'leaf') {
+      body = '<path d="M30 120 C58 42 142 22 174 72 C150 154 68 174 30 120 Z" ' + common + '/><path d="M44 122 C82 104 120 84 164 70" fill="none" stroke="#f7f3e9" stroke-width="8" stroke-linecap="round"/>';
+    } else if (type === 'circle') {
+      body = '<circle cx="100" cy="100" r="70" fill="none" stroke="' + color + '" stroke-width="18"/><circle cx="100" cy="100" r="38" fill="' + color + '" opacity="0.38"/>';
+    } else if (type === 'line') {
+      body = '<path d="M34 136 C66 56 126 154 166 66" fill="none" stroke="' + color + '" stroke-width="20" stroke-linecap="round"/>';
+    } else {
+      body = '<rect x="38" y="38" width="124" height="124" rx="12" ' + common + '/><text x="100" y="118" text-anchor="middle" font-size="64" font-family="serif" fill="#f7f3e9">福</text>';
+    }
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">' + body + '</svg>';
+  }
+
+  function ensureImageReady(img) {
+    if (img.complete && img.naturalWidth) return Promise.resolve();
+    return new Promise((resolve) => {
+      img.addEventListener('load', resolve, { once: true });
+      img.addEventListener('error', resolve, { once: true });
+    });
+  }
+
+  function drawContainedImage(ctx, img, w, h) {
+    const scale = Math.min(w / img.naturalWidth, h / img.naturalHeight);
+    const dw = img.naturalWidth * scale;
+    const dh = img.naturalHeight * scale;
+    ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+  }
+
+  function escapeXml(text) {
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // ====================================================================== //
   //  Board element system (§10) + multiplayer (§12)
   // ====================================================================== //
   const board = {
@@ -381,13 +842,18 @@
       const node = document.createElement('div');
       node.className = 'board-element';
       node.dataset.id = el.id;
+      node.dataset.elementType = el.elementType || '';
+      node.dataset.elementName = el.elementName || '作品';
+      node.dataset.colorName = el.colorName || '';
+      node.dataset.colorHex = el.colorHex || '';
+      node.dataset.source = el.source || 'drawing';
       node.style.left = el.x + '%';
       node.style.top = el.y + '%';
       node.style.width = el.width + '%';
       node.innerHTML = ''; // build via DOM, avoid XSS (§14.2)
       const img = document.createElement('img');
       img.src = el.img;
-      img.alt = '作品';
+      img.alt = [el.colorName, el.elementName].filter(Boolean).join('') || '作品';
       const handle = document.createElement('div');
       handle.className = 'resize-handle';
       node.appendChild(img);
@@ -531,9 +997,13 @@
     mode: 'single',
 
     init() {
+      this.currentInputKind = 'touch';
       painter.init();
+      painter.onMove = (p, down) => this.emitCursor(p, down);
       catLogic.init();
       board.init();
+      scanController.init();
+      assistiveInput.init();
       this.bindNav();
       this.bindBoard();
       this.bindAdmin();
@@ -576,7 +1046,11 @@
       $('#window-latch').addEventListener('click', () => painter.clear());
       $('#btn-pickup').addEventListener('click', () => painter.openCanvas());
       $('#btn-finish').addEventListener('click', () => this.finishDrawing());
+      $('#btn-scan-mode').addEventListener('click', () => scanController.toggle());
+      $('#btn-tactile-export').addEventListener('click', () => this.exportTactile());
+      $('#tactile-close').addEventListener('click', () => { $('#tactile-output').hidden = true; });
       $('#btn-leave-board').addEventListener('click', () => {
+        scanController.stop(false);
         board.roomId = null;
         this.switchMode(this.mode === 'multi' ? 'multi' : 'single');
       });
@@ -597,79 +1071,50 @@
         catLogic.say(painter.filterEnabled ? '防手震開咗，畫線會順滑啲' : '防手震閂咗');
       });
       syncFilterBtn();
-
-      // 頭部 / 視線操控 toggles (mutually exclusive)
-      $('#btn-head').addEventListener('click', () => this.toggleHead());
-      $('#btn-eye').addEventListener('click', () => this.toggleEye());
     },
 
-    // ---- 共融替代輸入：頭部 / 視線（互斥，共用游標）----
-    stopHead() {
-      if (this.headSource) { this.headSource.stop(); this.headSource = null; }
-      const hb = $('#btn-head');
-      hb.classList.remove('on'); hb.setAttribute('aria-checked', 'false');
-      $('#head-cam-wrap').hidden = true;
+    // ---- §共融 Phase 4: live cursor presence in 共繪 ----
+    emitCursor(p, down) {
+      if (!socket || !board.isMulti()) return;
+      const now = performance.now();
+      if (now - (this._lastCursorEmit || 0) < 60) return; // throttle ~16/s
+      this._lastCursorEmit = now;
+      socket.emit('cursor', {
+        roomId: board.roomId,
+        x: (p.x / painter.canvas.width) * 100,
+        y: (p.y / painter.canvas.height) * 100,
+        kind: this.currentInputKind,
+        down: !!down,
+      });
     },
 
-    stopEye() {
-      if (this.eyeSource) { this.eyeSource.stop(); this.eyeSource = null; }
-      const eb = $('#btn-eye');
-      eb.classList.remove('on'); eb.setAttribute('aria-checked', 'false');
-    },
-
-    hideCursorIfIdle() {
-      if (!this.headSource && !this.eyeSource) $('#head-cursor').hidden = true;
-    },
-
-    toggleHead() {
-      if (this.headSource) { this.stopHead(); this.hideCursorIfIdle(); catLogic.say('頭部操控閂咗'); return; }
-      if (!window.HeadSource || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        alert('呢部裝置／瀏覽器唔支援頭部操控（需要鏡頭）'); return;
+    onPeerCursor(d) {
+      const layer = $('#peer-cursors');
+      let el = layer.querySelector('[data-peer="' + d.id + '"]');
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'peer-cursor';
+        el.dataset.peer = d.id;
+        el.style.background = peerColor(d.id);
+        const label = document.createElement('span');
+        label.className = 'peer-label';
+        el.appendChild(label);
+        layer.appendChild(el);
       }
-      this.stopEye(); // mutually exclusive
-      const canvas = painter.canvas, cursor = $('#head-cursor'), hb = $('#btn-head');
-      this.headSource = new HeadSource({
-        rect: () => canvas.getBoundingClientRect(),
-        canvasW: canvas.width, canvasH: canvas.height,
-        cursor, ring: $('#head-ring'), video: $('#head-cam'),
-        emit: (sig) => painter.feed(sig),
-        dwellMs: 1000, dwellRadius: 22, gain: 1.7,
-        onState: (down) => catLogic.say(down ? '落筆喇，郁下個頭去畫' : '提起筆喇'),
-      });
-      if (!painter.editing) painter.openCanvas();
-      hb.classList.add('on'); hb.setAttribute('aria-checked', 'true');
-      cursor.hidden = false; $('#head-cam-wrap').hidden = false;
-      catLogic.say('開緊鏡頭，望住畫面郁下個頭嚟控制');
-      this.headSource.start().catch((err) => {
-        this.stopHead(); this.hideCursorIfIdle();
-        alert('無法開啟鏡頭：' + (err && err.message ? err.message : err));
-      });
+      el.style.left = d.x + '%';
+      el.style.top = d.y + '%';
+      el.classList.toggle('down', d.down);
+      el.querySelector('.peer-label').textContent = INPUT_LABELS[d.kind] || '夥伴';
+      clearTimeout(el._idle);
+      el._idle = setTimeout(() => el.remove(), 4000); // drop stale cursors
     },
 
-    toggleEye() {
-      if (this.eyeSource) { this.stopEye(); this.hideCursorIfIdle(); catLogic.say('視線操控閂咗'); return; }
-      if (!window.EyeSource || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        alert('呢部裝置／瀏覽器唔支援視線操控（需要鏡頭）'); return;
-      }
-      this.stopHead(); // mutually exclusive
-      const canvas = painter.canvas, cursor = $('#head-cursor'), eb = $('#btn-eye');
-      this.eyeSource = new EyeSource({
-        rect: () => canvas.getBoundingClientRect(),
-        canvasW: canvas.width, canvasH: canvas.height,
-        cursor, ring: $('#head-ring'),
-        emit: (sig) => painter.feed(sig),
-        dwellMs: 1100, dwellRadius: 45,
-        onState: (down) => catLogic.say(down ? '落筆喇，望住邊度就畫邊度' : '提起筆喇'),
-      });
-      if (!painter.editing) painter.openCanvas();
-      eb.classList.add('on'); eb.setAttribute('aria-checked', 'true');
-      cursor.hidden = false;
-      catLogic.say('視線操控係實驗功能，開緊鏡頭，望住畫面試下');
-      this.eyeSource.start().catch((err) => {
-        this.stopEye(); this.hideCursorIfIdle();
-        alert('無法開啟視線操控：' + (err && err.message ? err.message : err));
-      });
+    removePeer(id) {
+      const el = $('#peer-cursors').querySelector('[data-peer="' + id + '"]');
+      if (el) el.remove();
     },
+
+    clearPeers() { $('#peer-cursors').innerHTML = ''; },
 
     openBoard(bgImage) {
       board.clearAll();
@@ -683,6 +1128,137 @@
       painter.canvas.classList.remove('editing');
       $('#room-banner').hidden = !board.isMulti();
       this.showScreen('#screen-board');
+    },
+
+    placeScanElement(selection) {
+      const element = selection.element;
+      const color = selection.color;
+      const position = selection.position;
+      if (!element || !color || !position) return;
+
+      const el = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        img: elementDataUrl(element.key, color.hex),
+        x: position.x,
+        y: position.y,
+        width: element.key === 'line' ? 24 : 18,
+        date: chineseDate(),
+        elementType: element.key,
+        elementName: element.name,
+        colorName: color.name,
+        colorHex: color.hex,
+        source: 'scan',
+      };
+
+      if (board.isMulti()) {
+        socket.emit('add_element', { roomId: board.roomId, element: el });
+      } else {
+        board.addElement(el);
+      }
+
+      feedbackLayer.tone(color.key);
+      feedbackLayer.say('已放下' + color.name + element.name);
+    },
+
+    async exportTactile() {
+      const result = await this.buildTactileOutput();
+      $('#tactile-preview').src = result.png;
+      $('#tactile-description').textContent = result.description;
+      $('#tactile-download-png').href = result.png;
+      const svgBlob = new Blob([result.svg], { type: 'image/svg+xml;charset=utf-8' });
+      if (this._lastSvgUrl) URL.revokeObjectURL(this._lastSvgUrl);
+      this._lastSvgUrl = URL.createObjectURL(svgBlob);
+      $('#tactile-download-svg').href = this._lastSvgUrl;
+      $('#tactile-output').hidden = false;
+      feedbackLayer.say('已準備觸覺圖。' + result.description);
+    },
+
+    async buildTactileOutput() {
+      const w = painter.canvas.width;
+      const h = painter.canvas.height;
+      const out = document.createElement('canvas');
+      out.width = w;
+      out.height = h;
+      const ctx = out.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+
+      await this.drawBoardSnapshot(ctx, w, h);
+      this.thresholdCanvas(out);
+
+      const png = out.toDataURL('image/png');
+      const description = this.describeWork();
+      const svg = [
+        '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">',
+        '<rect width="100%" height="100%" fill="#ffffff"/>',
+        '<image href="' + png + '" width="' + w + '" height="' + h + '"/>',
+        '<desc>' + escapeXml(description) + '</desc>',
+        '</svg>',
+      ].join('');
+      return { png, svg, description };
+    },
+
+    async drawBoardSnapshot(ctx, w, h) {
+      const bg = $('#board-bg');
+      if (!bg.hidden && bg.complete && bg.naturalWidth) {
+        drawContainedImage(ctx, bg, w, h);
+      }
+
+      ctx.drawImage(painter.canvas, 0, 0, w, h);
+
+      const nodes = $$('#elements-layer .board-element');
+      for (const node of nodes) {
+        const img = node.querySelector('img');
+        if (!img) continue;
+        await ensureImageReady(img);
+        const x = (parseFloat(node.style.left) / 100) * w;
+        const y = (parseFloat(node.style.top) / 100) * h;
+        const ew = (parseFloat(node.style.width) / 100) * w;
+        const ratio = img.naturalHeight && img.naturalWidth ? img.naturalHeight / img.naturalWidth : 1;
+        const eh = ew * ratio;
+        ctx.drawImage(img, x - ew / 2, y - eh / 2, ew, eh);
+      }
+    },
+
+    thresholdCanvas(canvas) {
+      const ctx = canvas.getContext('2d');
+      const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = img.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const alpha = data[i + 3];
+        const lum = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+        const mark = alpha > 25 && lum < 245;
+        data[i] = mark ? 0 : 255;
+        data[i + 1] = mark ? 0 : 255;
+        data[i + 2] = mark ? 0 : 255;
+        data[i + 3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+    },
+
+    describeWork() {
+      const parts = [];
+      const counts = {};
+      $$('#elements-layer .board-element').forEach((node) => {
+        const color = node.dataset.colorName || '';
+        const name = node.dataset.elementName || '作品';
+        const key = color + name;
+        counts[key] = { text: key, count: (counts[key] ? counts[key].count : 0) + 1 };
+      });
+      Object.values(counts).forEach((item) => {
+        parts.push(item.count > 1 ? item.text + item.count + '個' : item.text);
+      });
+      if (this.hasCanvasMarks()) parts.push('自由繪畫線條');
+      if (!parts.length) return '作品暫未包含可辨識圖元。';
+      return '作品包含' + parts.join('、') + '。';
+    },
+
+    hasCanvasMarks() {
+      const data = painter.ctx.getImageData(0, 0, painter.canvas.width, painter.canvas.height).data;
+      for (let i = 3; i < data.length; i += 16) {
+        if (data[i] > 10) return true;
+      }
+      return false;
     },
 
     // §9.3 finishing workflow
@@ -923,6 +1499,8 @@
       socket.on('element_moved', ({ id, x, y }) => board.moveNode(id, x, y));
       socket.on('element_resized', ({ id, width }) => board.resizeNode(id, width));
       socket.on('element_deleted', (id) => board.removeNode(id));
+      socket.on('peer_cursor', (d) => this.onPeerCursor(d));
+      socket.on('peer_left', (id) => this.removePeer(id));
       socket.on('error_msg', (msg) => alert(msg));
       socket.on('refresh_linearts', () => {
         this.loadLineartsInto('#single-canvas-grid', true);
