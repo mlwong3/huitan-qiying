@@ -5,6 +5,36 @@
 
 ---
 
+## [3.3.0] — 2026-06-27 · 共融創作工具（階段一 + 階段二）
+
+### Added
+- **One Euro Filter 自適應平滑**（Casiez 2012）`public/oneEuroFilter.js`：
+  `LowPass / OneEuroFilter / PointFilter`（純 JS，掛 window 全域）。慢速強平滑壓手震、
+  快速放開保持跟手。預設 `minCutoff 0.8 / beta 0.02`。
+- **統一指標抽象層** `public/pointerSources.js`：所有輸入正規化成同一條
+  `{ x, y, action }` 訊號流。`TouchMouseSource` 包裝現有觸控／滑鼠。
+- **「防手震」可見開關**（文具盤，`role="switch"`）：即時切換濾波，預設開啟。
+- **頭部操控（階段二）** `HeadSource`：MediaPipe FaceLandmarker（CDN，本機運算）以鼻樑
+  landmark 驅動游標，經同一 `PointFilter` 平滑；**dwell（停留 1 秒）切換落筆／提筆**，
+  頭部移動即繪畫——避開精準點擊。畫布游標 + dwell 進度環 + 本機 webcam 預覽。
+
+### Changed
+- `painter` 改為只認 `feed({x,y,action})` 單一入口（script.js），不再直接綁 DOM 事件；
+  新增輸入毋須改動繪畫核心（亦不影響 Socket.IO 共繪）。
+
+### Verified
+- 同一手震序列經真實事件流：濾波關 → 開，畫線抖動 std 22.4px → 7.2px（**−67.9%**）。
+- `HeadSource` dwell 邏輯：靜止→落筆、移動→繪畫、再靜止→提筆（序列 down→move→up）。
+- 鏡頭失敗時友善回退（還原開關 + 提示）。三檔開關 UI 與版面正常，無 console error。
+
+### Privacy
+- 頭部追蹤全部瀏覽器**本機運算、影像不上傳**。
+
+### Roadmap（未做）
+- 階段三：視線追蹤（WebGazer）、光雕 STL 匯出。階段四：跨輸入共融共繪。
+
+---
+
 ## [3.2.0] — 2026-06-27 · 全面響應式版面
 
 ### Fixed

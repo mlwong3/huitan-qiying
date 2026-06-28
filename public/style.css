@@ -307,6 +307,56 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
 }
 .ink-pad.custom input { width: 60px; height: 60px; border: none; background: none; cursor: pointer; }
 
+/* 防手震 (One Euro Filter) switch */
+.aid-switch {
+  display: flex; align-items: center; gap: 12px;
+  min-height: var(--touch);
+  padding: 8px 16px;
+  border: 2px solid rgba(255,255,255,0.25);
+  border-radius: 10px;
+  background: rgba(0,0,0,0.18);
+  color: var(--rice-paper);
+  font-family: var(--font); font-size: 22px; font-weight: 600;
+  cursor: pointer;
+}
+.aid-switch .aid-knob {
+  position: relative; flex: 0 0 52px;
+  width: 52px; height: 30px; border-radius: 15px;
+  background: var(--mountain-mist); transition: background 0.2s ease;
+}
+.aid-switch .aid-knob::after {
+  content: ""; position: absolute; top: 3px; left: 3px;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--rice-paper); transition: transform 0.2s ease;
+}
+.aid-switch.on .aid-knob { background: var(--jade); }
+.aid-switch.on .aid-knob::after { transform: translateX(22px); }
+.aid-switch .aid-label { white-space: nowrap; }
+
+/* Head-tracking cursor + dwell ring + local webcam preview (Phase 2) */
+.head-cursor {
+  position: fixed; z-index: 95; width: 48px; height: 48px;
+  margin: -24px 0 0 -24px; border-radius: 50%; pointer-events: none;
+  border: 3px solid var(--vermillion); background: rgba(184, 62, 47, 0.16);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.head-cursor.down { border-color: var(--jade); background: rgba(90, 125, 108, 0.35); }
+.head-ring {
+  position: absolute; inset: -9px; border-radius: 50%;
+  background: conic-gradient(var(--gold) calc(var(--p, 0) * 360deg), transparent 0);
+  -webkit-mask: radial-gradient(transparent 58%, #000 60%);
+  mask: radial-gradient(transparent 58%, #000 60%);
+}
+.head-cam-wrap { position: fixed; left: 14px; bottom: 14px; z-index: 95; text-align: center; }
+.head-cam {
+  width: 150px; height: 112px; object-fit: cover; transform: scaleX(-1);
+  border: 2px solid var(--wood); border-radius: 8px; background: #000; display: block;
+}
+.head-cam-note {
+  display: block; margin-top: 4px; font-size: 14px; color: var(--wood);
+  background: rgba(247, 243, 233, 0.85); border-radius: 6px; padding: 2px 6px;
+}
+
 .tray-actions { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
 
 /* §4.3.1 Window-scape canvas */
@@ -502,6 +552,7 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
   }
   .tool-item { flex: 1 1 140px; max-width: 220px; }
   .seal-ink-box { flex: 1 1 100%; }
+  .aid-switch { flex: 1 1 100%; justify-content: center; }
   .tray-actions { order: 99; margin: 0; flex-direction: row; flex-wrap: wrap; width: 100%; }
   .tray-actions .big-btn { flex: 1 1 140px; }
   .tray-actions .back-btn { flex: 1 1 120px; margin-top: 0; }

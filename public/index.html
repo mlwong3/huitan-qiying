@@ -82,6 +82,18 @@
           <!-- Seal-pad color selection (§4.3.3) -->
           <div class="seal-ink-box" id="palette"></div>
 
+          <!-- One Euro Filter anti-tremor switch (共融創作工具 階段一) -->
+          <button class="aid-switch" id="btn-filter" role="switch" aria-checked="true">
+            <span class="aid-knob"></span>
+            <span class="aid-label">防手震</span>
+          </button>
+
+          <!-- Head-tracking input switch (共融創作工具 階段二) -->
+          <button class="aid-switch" id="btn-head" role="switch" aria-checked="false">
+            <span class="aid-knob"></span>
+            <span class="aid-label">頭部操控</span>
+          </button>
+
           <div class="tray-actions">
             <button class="big-btn" id="btn-pickup">提筆</button>
             <button class="big-btn gold" id="btn-finish" hidden>封存作品</button>
@@ -117,6 +129,13 @@
         </div>
       </div>
 
+      <!-- Head-tracking cursor, dwell ring, local webcam preview (Phase 2) -->
+      <div class="head-cursor" id="head-cursor" hidden><span class="head-ring" id="head-ring"></span></div>
+      <div class="head-cam-wrap" id="head-cam-wrap" hidden>
+        <video class="head-cam" id="head-cam" playsinline muted></video>
+        <span class="head-cam-note">本機運算 · 影像不上傳</span>
+      </div>
+
       <!-- Seal ceremony overlay (§4.3.8) -->
       <div class="seal-ceremony" id="seal-ceremony" hidden>
         <div class="scroll-paper"><div class="seal-stamp">封</div></div>
@@ -148,6 +167,8 @@
   </main>
 
   <script src="/socket.io/socket.io.js"></script>
+  <script src="oneEuroFilter.js"></script>
+  <script src="pointerSources.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

@@ -43,10 +43,14 @@
     isDrawing: false,
     lastPos: { x: 0, y: 0 },
     editing: false,
+    filterEnabled: true,   // One Euro Filter anti-tremor (toggleable)
+    pf: null,              // PointFilter instance
 
     init() {
       this.canvas = $('#paint-canvas');
       this.ctx = this.canvas.getContext('2d');
+      // 預設 minCutoff 0.8 / beta 0.02 — 長者手震調校範圍 0.5–1.0 / 0.01–0.05
+      this.pf = new PointFilter(0.8, 0.02);
       this.bindEvents();
       this.buildPalette();
     },
@@ -71,33 +75,49 @@
     },
 
     bindEvents() {
-      const c = this.canvas;
-      const start = (e) => {
-        if (!this.editing) return;
-        e.preventDefault();
+      // Touch/mouse is the first unified PointerSource. The drawing core only
+      // listens to feed(), so new inputs (head tracking, etc.) just add a source.
+      const self = this;
+      this.source = new TouchMouseSource(
+        this.canvas,
+        (e) => self.pos(e),
+        (signal) => self.feed(signal)
+      );
+    },
+
+    // Unified input entry — every modality calls this with {x, y, action}.
+    feed(signal) {
+      if (!this.editing) return;
+      if (signal.action === 'down') {
         this.isDrawing = true;
-        this.lastPos = this.pos(e);
-      };
-      const move = (e) => {
-        if (!this.editing || !this.isDrawing) return;
-        e.preventDefault();
-        const p = this.pos(e);
-        this.line(this.lastPos, p);
-        if (this.mirrorMode) {
-          this.line(this.mirror(this.lastPos), this.mirror(p));
-        }
-        this.lastPos = p;
-      };
-      const end = () => {
+        if (this.filterEnabled && this.pf) this.pf.reset();
+        this.lastPos = this.smooth(signal.x, signal.y);
+        return;
+      }
+      if (signal.action === 'up') {
         if (this.isDrawing) this.endStroke();
         this.isDrawing = false;
-      };
-      c.addEventListener('mousedown', start);
-      c.addEventListener('mousemove', move);
-      window.addEventListener('mouseup', end);
-      c.addEventListener('touchstart', start, { passive: false });
-      c.addEventListener('touchmove', move, { passive: false });
-      c.addEventListener('touchend', end);
+        return;
+      }
+      // move
+      if (!this.isDrawing) return;
+      const p = this.smooth(signal.x, signal.y);
+      this.line(this.lastPos, p);
+      if (this.mirrorMode) {
+        this.line(this.mirror(this.lastPos), this.mirror(p));
+      }
+      this.lastPos = p;
+    },
+
+    // Apply One Euro Filter when enabled; otherwise pass the raw coordinate.
+    smooth(x, y) {
+      if (this.filterEnabled && this.pf) return this.pf.filter(x, y);
+      return { x: x, y: y };
+    },
+
+    setFilterEnabled(on) {
+      this.filterEnabled = on;
+      if (this.pf) this.pf.reset();
     },
 
     mirror(p) { return { x: this.canvas.width - p.x, y: p.y }; },
@@ -562,6 +582,62 @@
       });
       $('#elements-layer').addEventListener('mousedown', (e) => {
         if (e.target.id === 'elements-layer') board.deselect();
+      });
+
+      // 防手震 (One Euro Filter) on/off switch
+      const fb = $('#btn-filter');
+      const syncFilterBtn = () => {
+        const on = painter.filterEnabled;
+        fb.classList.toggle('on', on);
+        fb.setAttribute('aria-checked', on ? 'true' : 'false');
+      };
+      fb.addEventListener('click', () => {
+        painter.setFilterEnabled(!painter.filterEnabled);
+        syncFilterBtn();
+        catLogic.say(painter.filterEnabled ? '防手震開咗，畫線會順滑啲' : '防手震閂咗');
+      });
+      syncFilterBtn();
+
+      // 頭部操控 (head tracking) toggle
+      $('#btn-head').addEventListener('click', () => this.toggleHead());
+    },
+
+    toggleHead() {
+      const hb = $('#btn-head');
+      const cursor = $('#head-cursor'), camWrap = $('#head-cam-wrap');
+      const hide = () => {
+        hb.classList.remove('on'); hb.setAttribute('aria-checked', 'false');
+        cursor.hidden = true; camWrap.hidden = true;
+      };
+      // already running -> turn off
+      if (this.headSource && this.headSource.running) {
+        this.headSource.stop();
+        this.headSource = null;
+        hide();
+        catLogic.say('頭部操控閂咗');
+        return;
+      }
+      if (!window.HeadSource || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert('呢部裝置／瀏覽器唔支援頭部操控（需要鏡頭）');
+        return;
+      }
+      const canvas = painter.canvas;
+      this.headSource = new HeadSource({
+        rect: () => canvas.getBoundingClientRect(),
+        canvasW: canvas.width, canvasH: canvas.height,
+        cursor, ring: $('#head-ring'), video: $('#head-cam'),
+        emit: (sig) => painter.feed(sig),
+        dwellMs: 1000, dwellRadius: 22, gain: 1.7,
+        onState: (down) => catLogic.say(down ? '落筆喇，郁下個頭去畫' : '提起筆喇'),
+      });
+      if (!painter.editing) painter.openCanvas();
+      hb.classList.add('on'); hb.setAttribute('aria-checked', 'true');
+      cursor.hidden = false; camWrap.hidden = false;
+      catLogic.say('開緊鏡頭，望住畫面郁下個頭嚟控制');
+      this.headSource.start().catch((err) => {
+        this.headSource = null;
+        hide();
+        alert('無法開啟鏡頭：' + (err && err.message ? err.message : err));
       });
     },
 
