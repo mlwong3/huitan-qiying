@@ -119,24 +119,33 @@ gcloud run services update-traffic huitan-qiying --region asia-east1 \
 
 ## 3. 待辦事項（TODO）
 
-### 即時
-- [ ] **提交目前未 commit 的 [3.5.0] 改動**（單鍵創作、觸覺圖、Figma 入口頁、`figma-new-chinese-bg.png`）並推上 GitHub。
-- [ ] 重新部署 Cloud Run，使線上版本同步到 [3.5.0]。
-- [ ] 改掉公開站的預設管理密碼 `8888`（§1.5）。
+### 已完成（v3.6.0，2026-06-28）
+- [x] 提交並部署最新版本（rev 00007）。
+- [x] 改掉公開站預設密碼（改用 `ADMIN_PASSWORD` 環境變數，線上為非預設值）。
+- [x] **線稿持久化至 Firebase Storage**（bucket `huitan-qiying-linearts`，公開讀取）。
+- [x] 速率限制、CORS 白名單、WebP 背景（−95%）、快取標頭、冒煙測試（`npm test`）。
+- [x] 設定 GCP 預算警報（每月 $10，90% 通知）。
 
-### Figma 介面
-- [ ] **精準對齊 Figma 設計** `Mhy55NUKBCVIJdt4EpN4xt`：目前介面已用匯出的背景圖實作入口頁，但本機環境**沒有 Figma 讀取工具**，無法自動抽取最新版面數值。
-  - 需要其一：① 由 Figma 匯出各 frame 為 PNG/規格並分享；② 提供 Figma 存取（Dev Mode / MCP）。
-- [ ] 確認三個入口頁文字、間距、卡片透明度與 Figma 一致；檢查 768/375px 響應式。
+### Figma 介面（仍待）
+- [ ] **精準對齊 Figma 設計** `Mhy55NUKBCVIJdt4EpN4xt`：Figma MCP 已連接，但 **Starter 方案 MCP 呼叫上限**令 `get_metadata` / `get_screenshot` 第一次呼叫即被拒。
+  - 需要其一：① 升級 Figma 方案解除 MCP 上限；② 由 Figma 匯出各 frame 為 PNG/規格並分享。
+- [ ] 對齊後確認三個入口頁文字、間距、卡片透明度；檢查 768/375px 響應式。
 
-### 功能驗證
+### 功能驗證（仍待）
 - [ ] 端對端測試：單鍵掃描放置圖元、方向鍵移動、共繪同步、觸覺圖 PNG/SVG 輸出。
 - [ ] 共繪即時游標／在場狀態（先前規劃的 Phase 4，未完成）。
 
-### 基建
-- [ ] 線稿 + 作品持久化（Firebase Storage / Firestore）。
-- [ ] 設定 GCP 預算警報。
+### 基建（仍待）
+- [ ] 作品庫永久化（如需）：接 Firestore 保存房間／個人作品。
 - [ ] （可選）Cloud Build：push `main` 自動部署。
+- [ ] 大型 `public/script.js` 模組拆檔 + ESLint。
+
+### 線上環境變數（目前設定）
+| 變數 | 值 / 用途 |
+| --- | --- |
+| `STORAGE_BUCKET` | `huitan-qiying-linearts`（設定後啟用 Firebase Storage；不設則用本機磁碟） |
+| `ADMIN_PASSWORD` | 掌櫃密碼（線上為非預設；改值：`gcloud run deploy ... --set-env-vars ADMIN_PASSWORD=新值`） |
+| `ALLOWED_ORIGINS` | CORS 白名單（逗號分隔；目前為線上網址） |
 - [ ] 加基本自動化測試與 lint。
 
 ---
