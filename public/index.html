@@ -12,7 +12,7 @@
 <body>
   <!-- ============ Navigation: page-turn notepad tabs (§4.3.5) ============ -->
   <nav class="topbar">
-    <div class="logo">繪壇耆英</div>
+    <div class="logo">繪壇耆英<span class="logo-seal">共融</span></div>
     <div class="nav-tabs">
       <button class="nav-tab page-single active" data-mode="single">獨畫</button>
       <button class="nav-tab page-multi" data-mode="multi">共繪</button>
@@ -23,56 +23,55 @@
   <main>
     <!-- ============ Single home: personal gallery (§9.5) ============ -->
     <section id="screen-single-home" class="screen portal-screen active">
-      <div class="portal-shell">
-        <header class="portal-hero">
-          <p class="portal-kicker">共融創作及身心健康平台</p>
-          <h1 class="portal-title">獨畫入口</h1>
-          <p class="portal-copy">選擇空白宣紙或線稿，按自己的節奏創作，適合個人紓緩、練習手部活動及保存作品。</p>
-        </header>
-
-        <section class="portal-card portal-card-wide">
-          <div class="portal-card-head">
-            <div>
-              <p class="portal-label">開始創作</p>
-              <h2>揀一張紙開始</h2>
-            </div>
+      <div class="portal-inner">
+        <div class="portal-topline">
+          <h1 class="portal-h1">獨畫<span class="title-dot">·</span>揀一張紙開始<span class="title-seal">樂齡</span></h1>
+          <span class="portal-scope">主頁範圍：獨畫入口</span>
+        </div>
+        <div class="portal-two">
+          <div class="portal-col">
+            <section class="portal-card portal-pick">
+              <div class="gallery-grid" id="single-canvas-grid"></div>
+            </section>
+            <button class="big-btn gold portal-start" id="btn-start-single">開始獨畫</button>
           </div>
-          <div class="gallery-grid" id="single-canvas-grid"></div>
-        </section>
-
-        <section class="portal-card portal-card-wide">
-          <div class="portal-card-head">
-            <div>
-              <p class="portal-label">個人畫廊</p>
-              <h2>我的作品</h2>
+          <aside class="portal-aside">
+            <p class="portal-copy">長者可先選擇畫紙，再用觸控、滑鼠或輔助控制器開始創作。作品會自動保存在本機畫廊。</p>
+            <div class="info-pills">
+              <span class="info-pill">語音提示 開啟</span>
+              <span class="info-pill">防手震 開啟</span>
             </div>
-          </div>
+          </aside>
+        </div>
+        <div class="portal-section">
+          <h3 class="section-head">我的作品</h3>
           <div class="gallery-grid" id="my-works-grid"></div>
-        </section>
+        </div>
       </div>
     </section>
 
     <!-- ============ Multi entry: join / create room (§12) ============ -->
     <section id="screen-multi-entry" class="screen portal-screen">
-      <div class="portal-shell portal-shell-centered">
-        <header class="portal-hero">
-          <p class="portal-kicker">社交聯繫</p>
-          <h1 class="portal-title">共繪入口</h1>
-          <p class="portal-copy">與家人、照顧者或同學同時創作，把陪伴變成共同完成的作品。</p>
-        </header>
-        <div class="multi-entry-box portal-entry-grid">
-          <div class="entry-card portal-card">
-            <p class="portal-label">已有房間</p>
-            <h2>加入房間</h2>
+      <div class="portal-inner">
+        <div class="portal-topline">
+          <h1 class="portal-h1">共繪<span class="title-dot">·</span>邀友同畫<span class="title-seal">樂齡</span></h1>
+          <span class="portal-scope">主頁範圍：共繪入口</span>
+        </div>
+        <div class="portal-two">
+          <button class="portal-card room-create-card" id="btn-new-room">
+            <span class="room-create-title">＋ 開一間共繪房間</span>
+            <span class="room-create-sub">產生四位房間碼，邀請親友一起創作</span>
+          </button>
+          <div class="portal-card entry-card portal-join-card">
+            <h2>輸入房間碼</h2>
             <input type="text" id="room-code-input" maxlength="4" inputmode="numeric"
-                   placeholder="輸入四位數字" />
-            <button class="big-btn" id="btn-join-room">加入共繪</button>
+                   placeholder="例如：1234" />
+            <button class="big-btn gold" id="btn-join-room">加入</button>
           </div>
-          <div class="entry-card portal-card">
-            <p class="portal-label">建立連結</p>
-            <h2>開新房間</h2>
-            <button class="big-btn gold" id="btn-new-room">揀紙開房</button>
-          </div>
+        </div>
+        <div class="portal-section">
+          <h3 class="section-head">我的共繪</h3>
+          <p class="portal-hint">仲未有共繪作品，邀請朋友一齊畫啦～</p>
         </div>
       </div>
     </section>
@@ -190,31 +189,46 @@
 
     <!-- ============ Admin: line-art management (§13) ============ -->
     <section id="screen-admin" class="screen portal-screen">
-      <div class="portal-shell portal-shell-centered">
-        <header class="portal-hero">
-          <p class="portal-kicker">線稿及教材管理</p>
-          <h1 class="portal-title">掌櫃入口</h1>
-          <p class="portal-copy">教師可上傳、整理及刪除線稿，為不同能力使用者預備合適創作素材。</p>
-        </header>
-
-        <div class="portal-card admin-portal-card">
-          <div id="admin-login" class="admin-login">
-            <p class="portal-label">管理登入</p>
-            <input type="password" id="admin-pass" placeholder="輸入掌櫃密碼" />
-            <button class="big-btn gold" id="btn-admin-login">進入掌櫃</button>
-            <p class="hint" id="admin-hint"></p>
+      <div class="portal-inner">
+        <div class="portal-topline">
+          <h1 class="portal-h1">掌櫃<span class="title-dot">·</span>線稿管理<span class="title-seal">樂齡</span></h1>
+          <span class="portal-scope">主頁範圍：掌櫃入口</span>
+        </div>
+        <div class="portal-two">
+          <div class="portal-card admin-portal-card">
+            <p class="portal-copy">登入後可管理長者創作用的線稿及畫紙</p>
+            <div id="admin-login" class="admin-login">
+              <input type="password" id="admin-pass" placeholder="輸入掌櫃密碼" />
+              <button class="big-btn gold" id="btn-admin-login">進入</button>
+              <p class="hint" id="admin-hint"></p>
+            </div>
+            <div id="admin-panel" hidden>
+              <form id="upload-form" class="upload-form">
+                <label class="file-pick">
+                  <input type="file" id="lineart-file" accept="image/*" />
+                  <span>揀圖片</span>
+                </label>
+                <button class="big-btn gold" type="submit">上傳線稿</button>
+                <span id="upload-status" class="hint"></span>
+              </form>
+              <div class="gallery-grid" id="admin-lineart-grid"></div>
+            </div>
           </div>
-
-          <div id="admin-panel" hidden>
-            <form id="upload-form" class="upload-form">
-              <label class="file-pick">
-                <input type="file" id="lineart-file" accept="image/*" />
-                <span>揀圖片</span>
-              </label>
-              <button class="big-btn gold" type="submit">上傳線稿</button>
-              <span id="upload-status" class="hint"></span>
-            </form>
-            <div class="gallery-grid" id="admin-lineart-grid"></div>
+          <div class="portal-card info-card">
+            <h2>可管理項目</h2>
+            <ul class="manage-list">
+              <li>上傳線稿</li>
+              <li>刪除舊畫紙</li>
+              <li>整理主題分類</li>
+            </ul>
+          </div>
+        </div>
+        <div class="portal-section">
+          <h3 class="section-head">線稿庫</h3>
+          <div class="lineart-preview">
+            <div class="theme-card theme-red"><span class="theme-stamp"></span><span class="theme-name">花鳥線稿</span></div>
+            <div class="theme-card theme-green"><span class="theme-stamp"></span><span class="theme-name">山水線稿</span></div>
+            <div class="theme-card theme-amber"><span class="theme-stamp"></span><span class="theme-name">節日線稿</span></div>
           </div>
         </div>
       </div>

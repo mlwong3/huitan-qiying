@@ -87,33 +87,41 @@ gcloud run services update-traffic huitan-qiying --region asia-east1 \
 
 ---
 
-## 2. 可優化的地方
+## 2. 可優化的地方（2026-06-29 更新）
 
-### 2.1 安全（最優先）
-- **管理密碼硬編碼 `8888` 且明文傳輸**：改用 `ADMIN_PASSWORD` 環境變數（§1.5），再進一步用 session/JWT 或 Firebase Auth。
-- 所有 API 無 rate limiting；CORS 為全開放 → 收緊。
+> 已完成項目（密碼環境變數、速率限制、CORS、Firebase Storage 線稿持久化、WebP 背景、
+> 快取標頭、冒煙測試、預算警報）已從本清單移除；詳見 `CHANGELOG.md` [3.6.0] 與 §3 待辦。
+> 以下為**仍可優化**的項目。
 
-### 2.2 持久化
-- 房間狀態只存伺服器記憶體、上傳線稿存容器磁碟 → **重啟／重新部署即失**。
-  - 線稿改存 **Firebase Storage / Cloud Storage**；房間與作品改用 **Firestore**。
+### 2.1 安全（進一步）
+- 掌櫃仍是**單一共享密碼**（env）：可升級為真正帳戶登入（Firebase Auth）或簽發 session/JWT，
+  並對上傳／刪除加 CSRF 與審計記錄。
+- 加入基本 `helmet` 安全標頭（CSP、X-Frame-Options 等）。
+
+### 2.2 持久化（下一步）
+- 房間狀態仍存伺服器記憶體（共繪屬短期設計，可接受）；個人作品仍只在瀏覽器 localStorage。
+  - 如需跨裝置／永久作品庫：以 **Firestore** 保存房間與個人作品 metadata，圖檔續用 Firebase Storage。
+- 線稿可加**縮圖**（上傳時生成細圖）以加快掌櫃與選紙頁載入。
 
 ### 2.3 效能
-- `public/assets/figma-new-chinese-bg.png` 約 **2.4 MB**，每個入口頁載入。
-  - 壓縮並轉 **WebP/AVIF**、提供較細的行動版、加長 cache 標頭。
-- 前端為多個 classic `<script>`：可加版本化檔名 + 長 cache。
-- Cloud Run 加 `min-instances 1` 可消除冷啟動（但會有少量常駐費用）。
+- 前端多個 classic `<script>`：可合併＋版本化檔名（hash）配長快取，減少請求數。
+- Cloud Run 可視展示需要加 `min-instances 1` 消除冷啟動（會有少量常駐費用）。
+- 圖庫圖片可加 `loading="lazy"` 與固定長寬比，減少版面跳動。
 
 ### 2.4 可維護性與品質
-- **零自動化測試** → 至少加數個 smoke test（API、Socket 事件、單鍵流程）。
-- 大型 `public/script.js` 可按模組（painter / assistive / feedback / board / app）拆檔。
-- 加 ESLint / Prettier 一致風格。
+- 大型 `public/script.js`（~1500 行）可按模組（painter / scanController / feedbackLayer /
+  board / app）實際拆檔。
+- 加 **ESLint / Prettier** 統一風格；測試擴展到 Socket.IO 共繪事件與單鍵掃描流程。
+- 加 **Cloud Build trigger** 令 push `main` 自動部署（CI/CD）。
 
 ### 2.5 無障礙與展示
-- `輸出觸覺圖` 目前產生高對比 PNG/SVG；可再加 STL（光雕浮雕）真正可 3D 列印。
-- 單鍵掃描可加可調速度、聲音提示音量、視覺高亮對比設定。
+- `輸出觸覺圖` 目前產生高對比 PNG/SVG；可再加 **STL（光雕浮雕）** 真正可 3D 列印。
+- 單鍵掃描可加**可調掃描速度**、提示音量、視覺高亮對比設定。
+- 入口頁可補回 Figma 的裝飾印章（共融／樂齡／詩閒）細節與像素級間距對齊（待 Figma 解鎖）。
 
-### 2.6 費用控管
-- 於 GCP 設 **預算警報**（例如每月 HK$10）以防意外收費。
+### 2.6 介面對齊（Figma）
+- 三個入口頁已按 Figma PNG 重構（標題、主頁範圍標籤、雙欄卡片、線稿庫主題卡）。
+- 待 Figma MCP 解除 Starter 上限或取得設計變數後，再做**像素級**字級／間距／顏色對齊。
 
 ---
 

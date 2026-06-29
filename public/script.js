@@ -1361,7 +1361,7 @@
       card.className = 'gallery-card';
       const label = document.createElement('span');
       label.className = 'blank-label';
-      label.textContent = '＋ 空白宣紙';
+      label.textContent = '＋ 選擇畫紙';
       card.appendChild(label);
       card.addEventListener('click', () => {
         if (this.mode === 'multi') this.createRoom(null);
@@ -1391,6 +1391,8 @@
         this.showScreen('#screen-multi-gallery');
         this.loadLineartsInto('#multi-canvas-grid', true);
       });
+      const startSingle = $('#btn-start-single');
+      if (startSingle) startSingle.addEventListener('click', () => this.openBoard(null));
       $('#btn-join-room').addEventListener('click', () => {
         const code = $('#room-code-input').value.trim();
         if (!/^\d{4}$/.test(code)) { alert('請輸入四位數字房間號碼'); return; }
