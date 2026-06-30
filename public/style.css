@@ -87,28 +87,30 @@ body.drawing-active::before { filter: contrast(1.05); }
   letter-spacing: 3px;
   color: var(--gold);
 }
-.nav-tabs { display: flex; gap: 10px; perspective: 800px; }
+.nav-tabs { display: flex; gap: 10px; }
 
-/* §4.3.5 Page-turn navigation tabs */
+/* Uniform light tabs; active marked by an underline (Figma 主頁 UI) */
 .nav-tab {
   font-family: var(--font);
   font-size: 22px;
   font-weight: 600;
-  min-height: var(--touch);
-  padding: 8px 26px;
+  min-height: 52px;
+  padding: 8px 30px;
   border: none;
+  border-radius: 6px;
+  border-bottom: 3px solid transparent;
   cursor: pointer;
   color: var(--ink);
-  background: var(--rice-paper);
-  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.25);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
-  transform-style: preserve-3d;
+  background: rgba(247, 243, 233, 0.86);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  transition: background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
-.nav-tab.page-single { clip-path: polygon(0 0, 100% 0, 100% 78%, 82% 100%, 0 100%); }
-.nav-tab.page-multi  { padding-left: 34px; padding-right: 34px; }
-.nav-tab.page-admin  { background: var(--wood); color: var(--rice-paper); box-shadow: 4px 4px 10px rgba(0,0,0,0.4); }
-.nav-tab:hover  { transform: rotateY(-3deg) translateZ(10px); }
-.nav-tab.active { transform: translateZ(14px) translateY(-2px); box-shadow: 0 0 0 3px var(--gold), 4px 6px 14px rgba(0,0,0,0.35); }
+.nav-tab:hover  { background: var(--rice-paper); }
+.nav-tab.active {
+  background: #fff;
+  border-bottom-color: var(--wood);
+  box-shadow: 0 3px 9px rgba(0, 0, 0, 0.26);
+}
 
 /* ============================ Screens ==================================== */
 main { padding: 28px; max-width: 1280px; margin: 0 auto; }

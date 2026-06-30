@@ -47,7 +47,12 @@ app.use(express.json());
 // Long-cache the static asset bundle (fonts/backgrounds) before the general
 // static handler so the 7-day rule wins for /assets.
 app.use('/assets', express.static(path.join(DIRS.public, 'assets'), { maxAge: '7d', immutable: true }));
-app.use(express.static(DIRS.public, { maxAge: '1h' }));
+// HTML/CSS/JS must revalidate so UI updates appear immediately (no stale views).
+app.use(express.static(DIRS.public, {
+  setHeaders: (res, filePath) => {
+    if (/\.(html|css|js)$/.test(filePath)) res.setHeader('Cache-Control', 'no-cache');
+  },
+}));
 app.use('/linearts', express.static(DIRS.linearts, { maxAge: '1d' })); // disk-mode fallback
 
 // Rate limiting (Security §14.2). Generous for general API, stricter for admin.
