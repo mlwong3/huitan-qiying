@@ -1060,6 +1060,7 @@
       this.bindMulti();
       this.loadLineartsInto('#single-canvas-grid', true);
       this.renderMyWorks();
+      this.renderMyRooms();
       this.bindSocket();
     },
 
@@ -1395,6 +1396,82 @@
       });
     },
 
+    // ----- §12.x localStorage room history (quickly return to / cancel) --
+    loadMyRooms() {
+      return JSON.parse(localStorage.getItem('myRooms') || '[]');
+    },
+
+    rememberRoom(roomId) {
+      const rooms = this.loadMyRooms().filter((r) => r.roomId !== roomId);
+      rooms.unshift({ roomId, date: chineseDate(), ts: Date.now() });
+      localStorage.setItem('myRooms', JSON.stringify(rooms.slice(0, 20)));
+      this.renderMyRooms();
+    },
+
+    forgetRoom(roomId) {
+      const rooms = this.loadMyRooms().filter((r) => r.roomId !== roomId);
+      localStorage.setItem('myRooms', JSON.stringify(rooms));
+      this.renderMyRooms();
+    },
+
+    renderMyRooms() {
+      const grid = $('#my-rooms-grid');
+      if (!grid) return;
+      const rooms = this.loadMyRooms();
+      grid.innerHTML = '';
+      if (!rooms.length) {
+        const p = document.createElement('p');
+        p.className = 'portal-hint';
+        p.textContent = '仲未有共繪作品，邀請朋友一齊畫啦～';
+        grid.appendChild(p);
+        return;
+      }
+      rooms.forEach((r) => {
+        const card = document.createElement('div');
+        card.className = 'room-history-card';
+
+        const code = document.createElement('span');
+        code.className = 'room-history-code';
+        code.textContent = r.roomId;
+
+        const date = document.createElement('span');
+        date.className = 'room-history-date';
+        date.textContent = r.date;
+
+        const actions = document.createElement('div');
+        actions.className = 'room-history-actions';
+
+        const backBtn = document.createElement('button');
+        backBtn.className = 'big-btn room-history-btn';
+        backBtn.textContent = '返回';
+        backBtn.addEventListener('click', () => this.rejoinRoom(r.roomId));
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'big-btn room-history-btn cancel';
+        cancelBtn.textContent = '取消';
+        cancelBtn.addEventListener('click', () => this.cancelRoom(r.roomId));
+
+        actions.appendChild(backBtn);
+        actions.appendChild(cancelBtn);
+        card.appendChild(code);
+        card.appendChild(date);
+        card.appendChild(actions);
+        grid.appendChild(card);
+      });
+    },
+
+    rejoinRoom(roomId) {
+      if (!socket) { alert('需要連線伺服器才可返回房間'); return; }
+      this._pendingJoinRoomId = roomId;
+      socket.emit('join_room', { roomId });
+    },
+
+    cancelRoom(roomId) {
+      if (!confirm('確定要取消房間「' + roomId + '」嗎？房間內的共繪內容將會清除。')) return;
+      if (socket) socket.emit('close_room', { roomId });
+      this.forgetRoom(roomId);
+    },
+
     // ----- line-art gallery ----------------------------------------------
     loadLineartsInto(gridSel, withBlank) {
       const grid = $(gridSel);
@@ -1413,7 +1490,7 @@
       card.className = 'gallery-card';
       const label = document.createElement('span');
       label.className = 'blank-label';
-      label.textContent = '＋ 選擇畫紙';
+      label.textContent = '＋ 空白畫紙';
       card.appendChild(label);
       card.addEventListener('click', () => {
         if (this.mode === 'multi') this.createRoom(null);
@@ -1443,11 +1520,10 @@
         this.showScreen('#screen-multi-gallery');
         this.loadLineartsInto('#multi-canvas-grid', true);
       });
-      const startSingle = $('#btn-start-single');
-      if (startSingle) startSingle.addEventListener('click', () => this.openBoard(null));
       $('#btn-join-room').addEventListener('click', () => {
         const code = $('#room-code-input').value.trim();
         if (!/^\d{4}$/.test(code)) { alert('請輸入四位數字房間號碼'); return; }
+        this._pendingJoinRoomId = code;
         if (socket) socket.emit('join_room', { roomId: code });
       });
     },
@@ -1538,6 +1614,8 @@
         board.roomId = roomId;
         $('#room-id-label').textContent = roomId;
         this.openBoard(bgImage);
+        this._pendingJoinRoomId = null;
+        this.rememberRoom(roomId);
         catLogic.say('開房成功，號碼係 ' + roomId.split('').join(' '));
       });
 
@@ -1546,7 +1624,19 @@
         $('#room-id-label').textContent = id;
         this.openBoard(bgImage);
         elements.forEach((el) => board.addElement(el));
+        this._pendingJoinRoomId = null;
+        this.rememberRoom(id);
         catLogic.say('加入咗房間 ' + id);
+      });
+
+      // §12.x 另一端取消咗呢個房間：清走本機紀錄，若正身處其中則彈返出去
+      socket.on('room_closed', ({ roomId } = {}) => {
+        this.forgetRoom(roomId);
+        if (board.roomId === roomId) {
+          board.roomId = null;
+          alert('呢個共繪房間已經被取消');
+          this.switchMode('multi');
+        }
       });
 
       socket.on('element_added', (el) => {
@@ -1558,7 +1648,14 @@
       socket.on('element_deleted', (id) => board.removeNode(id));
       socket.on('peer_cursor', (d) => this.onPeerCursor(d));
       socket.on('peer_left', (id) => this.removePeer(id));
-      socket.on('error_msg', (msg) => alert(msg));
+      // 找不到房間（例如舊房間已在伺服器重啟後消失）：連帶清走本機紀錄
+      socket.on('error_msg', (msg) => {
+        if (this._pendingJoinRoomId) {
+          this.forgetRoom(this._pendingJoinRoomId);
+          this._pendingJoinRoomId = null;
+        }
+        alert(msg);
+      });
       socket.on('refresh_linearts', () => {
         this.loadLineartsInto('#single-canvas-grid', true);
         if (!$('#admin-panel').hidden) this.renderAdminLinearts();

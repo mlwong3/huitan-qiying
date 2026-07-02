@@ -230,20 +230,6 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
   color: var(--wood);
   font-size: 28px;
 }
-.portal-entry-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(240px, 1fr));
-  align-items: stretch;
-  justify-content: stretch;
-  gap: 22px;
-  margin-top: 0;
-}
-.portal-entry-grid .entry-card {
-  min-height: 244px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
 .admin-portal-card {
   width: min(560px, 100%);
 }
@@ -331,7 +317,6 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
 .portal-aside .portal-copy { margin: 0; }
 .portal-pick { display: flex; align-items: center; justify-content: center; min-height: 230px; }
 .portal-pick .gallery-grid { width: 100%; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
-.portal-start { align-self: flex-start; }
 
 .info-pills { display: flex; flex-wrap: wrap; gap: 14px; }
 .info-pill {
@@ -350,7 +335,11 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
 }
 .portal-hint { font-size: 20px; color: #4a3f34; margin: 4px 0 0; }
 
-/* 共繪 create-room card */
+/* 共繪 create-room / join-room cards — matching borderless style */
+.room-create-card,
+.portal-join-card {
+  border: none;
+}
 .room-create-card {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 14px; text-align: center; cursor: pointer; min-height: 230px;
@@ -360,6 +349,39 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
 .room-create-sub { font-size: 20px; color: #4a3f34; }
 .portal-join-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; min-height: 230px; }
 .portal-join-card h2 { margin: 0; }
+
+/* 我的共繪 — quickly return to or cancel a previously opened room */
+.room-history-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 18px;
+}
+.room-history-card {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 16px 20px;
+  background: rgba(247,243,233,0.82);
+  border: 2px solid var(--mountain-mist);
+  border-radius: 12px;
+}
+.room-history-code {
+  font-size: 30px; font-weight: 700; letter-spacing: 4px; color: var(--wood);
+}
+.room-history-date { font-size: 18px; color: #4a3f34; }
+.room-history-actions { display: flex; gap: 10px; margin-top: 4px; }
+/* .room-history-actions prefix raises specificity above the later .big-btn
+   base rule (12px 30px padding, 24px font) so these stay compact and never
+   wrap a 2-character label onto separate lines. */
+.room-history-actions .room-history-btn {
+  flex: 1;
+  font-size: 20px;
+  min-height: var(--touch);
+  padding: 8px 6px;
+  white-space: nowrap;
+}
+.room-history-actions .room-history-btn.cancel {
+  background: transparent; border-color: var(--vermillion); color: var(--vermillion);
+}
+.room-history-actions .room-history-btn.cancel:hover { background: rgba(184,62,47,0.08); }
 
 /* 掌櫃 manage list + themed lineart library */
 .info-card { display: flex; flex-direction: column; gap: 14px; min-height: 230px; justify-content: center; }
@@ -442,20 +464,6 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
 }
 
 /* ============================ Multi entry ================================ */
-.multi-entry-box {
-  display: flex; align-items: center; justify-content: center;
-  gap: 28px; flex-wrap: wrap; margin-top: 30px;
-}
-.entry-card {
-  background: var(--rice-paper);
-  border: 3px solid var(--window-wood);
-  border-radius: 14px;
-  padding: 30px 36px;
-  text-align: center;
-  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.16);
-}
-.entry-card h2 { font-size: 26px; color: var(--wood); margin: 0 0 18px; }
-.entry-divider { font-size: 24px; color: var(--mountain-mist); }
 #room-code-input {
   font-family: var(--font);
   font-size: 34px;
@@ -1048,7 +1056,6 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
     padding: 22px;
     background: rgba(247,243,233,0.72);
   }
-  .portal-entry-grid { grid-template-columns: 1fr; }
   .portal-card { padding: 20px; background: rgba(247,243,233,0.72); }
   .portal-card-head { align-items: flex-start; }
   .portal-screen .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
@@ -1121,7 +1128,6 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
   .tray-actions-grid { grid-template-columns: 1fr 1fr; }
   .cat-bubble { max-width: 150px; font-size: 16px; }
   #room-code-input { width: 100%; max-width: 240px; }
-  .multi-entry-box { gap: 16px; }
   .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
   .scan-options,
   .scan-options.scan-step-position {

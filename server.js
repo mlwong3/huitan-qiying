@@ -143,6 +143,15 @@ io.on('connection', (socket) => {
     socket.emit('init_room', { id: room.id, bgImage: room.bgImage, elements: room.elements });
   });
 
+  // close_room { roomId } — cancel a room (from the board or the 我的共繪 history
+  // list). Anyone who knows the 4-digit code may close it, matching the existing
+  // trust model (the code is already sufficient to join and edit the room).
+  socket.on('close_room', ({ roomId } = {}) => {
+    if (!roomId || !rooms[roomId]) return;
+    io.to(roomId).emit('room_closed', { roomId });
+    delete rooms[roomId];
+  });
+
   // add_element { roomId, image: dataURL } or { roomId, element }
   socket.on('add_element', ({ roomId, image, element } = {}) => {
     const room = rooms[roomId];
