@@ -91,41 +91,52 @@
       <div class="board-layout">
         <!-- Stationery tray sidebar (§6.3) -->
         <aside class="stationery-tray">
-          <div class="tool-item" data-tool="pen" title="毛筆">
-            <span class="tool-art brush"></span><span class="tool-label">毛筆</span>
-          </div>
-          <div class="tool-item" data-tool="zen" title="禪繞筆">
-            <span class="tool-art pen"></span><span class="tool-label">禪繞</span>
-          </div>
-          <div class="tool-item" data-tool="eraser" title="擦膠">
-            <span class="tool-art eraser"></span><span class="tool-label">擦膠</span>
-          </div>
-          <div class="tool-item" data-tool="mirror" title="鏡子">
-            <span class="tool-art mirror"></span><span class="tool-label">鏡子</span>
-          </div>
-          <div class="tool-item" data-action="clear" title="清空">
-            <span class="tool-art clear"></span><span class="tool-label">清空</span>
+          <!-- Tools: compact 2-column grid so everything fits one screen (§6.3) -->
+          <div class="tool-grid">
+            <div class="tool-item" data-tool="pen" title="毛筆">
+              <span class="tool-art brush"></span><span class="tool-label">毛筆</span>
+            </div>
+            <div class="tool-item" data-tool="zen" title="禪繞筆">
+              <span class="tool-art pen"></span><span class="tool-label">禪繞</span>
+            </div>
+            <div class="tool-item" data-tool="eraser" title="擦膠">
+              <span class="tool-art eraser"></span><span class="tool-label">擦膠</span>
+            </div>
+            <div class="tool-item" data-tool="mirror" title="鏡子">
+              <span class="tool-art mirror"></span><span class="tool-label">鏡子</span>
+            </div>
+            <div class="tool-item" data-action="undo" id="tool-undo" title="復原一筆">
+              <span class="tool-art undo"></span><span class="tool-label">復原</span>
+            </div>
+            <div class="tool-item" data-action="clear" title="清空">
+              <span class="tool-art clear"></span><span class="tool-label">清空</span>
+            </div>
           </div>
 
           <!-- Seal-pad color selection (§4.3.3) -->
           <div class="seal-ink-box" id="palette"></div>
 
-          <!-- One Euro Filter anti-tremor switch (共融創作工具 階段一) -->
-          <button class="aid-switch" id="btn-filter" role="switch" aria-checked="true">
-            <span class="aid-knob"></span>
-            <span class="aid-label">防手震</span>
-          </button>
+          <!-- Aid toggles: single column so full labels never clip -->
+          <div class="aid-switch-row">
+            <!-- One Euro Filter anti-tremor switch (共融創作工具 階段一) -->
+            <button class="aid-switch" id="btn-filter" role="switch" aria-checked="true">
+              <span class="aid-knob"></span>
+              <span class="aid-label">防手震</span>
+            </button>
 
-          <!-- Single-switch scanning creation mode -->
-          <button class="aid-switch" id="btn-scan-mode" role="switch" aria-checked="false">
-            <span class="aid-knob"></span>
-            <span class="aid-label">單鍵創作</span>
-          </button>
+            <!-- Single-switch scanning creation mode -->
+            <button class="aid-switch" id="btn-scan-mode" role="switch" aria-checked="false">
+              <span class="aid-knob"></span>
+              <span class="aid-label">單鍵創作</span>
+            </button>
+          </div>
 
           <div class="tray-actions">
-            <button class="big-btn" id="btn-pickup">提筆</button>
             <button class="big-btn gold" id="btn-finish" hidden>封存作品</button>
-            <button class="big-btn tactile-btn" id="btn-tactile-export">輸出觸覺圖</button>
+            <div class="tray-actions-grid">
+              <button class="big-btn" id="btn-pickup">提筆</button>
+              <button class="big-btn tactile-btn" id="btn-tactile-export">輸出觸覺圖</button>
+            </div>
             <button class="back-btn" id="btn-leave-board">← 返回</button>
           </div>
         </aside>
@@ -221,14 +232,6 @@
               <li>刪除舊畫紙</li>
               <li>整理主題分類</li>
             </ul>
-          </div>
-        </div>
-        <div class="portal-section">
-          <h3 class="section-head">線稿庫</h3>
-          <div class="lineart-preview">
-            <div class="theme-card theme-red"><span class="theme-stamp"></span><span class="theme-name">花鳥線稿</span></div>
-            <div class="theme-card theme-green"><span class="theme-stamp"></span><span class="theme-name">山水線稿</span></div>
-            <div class="theme-card theme-amber"><span class="theme-stamp"></span><span class="theme-name">節日線稿</span></div>
           </div>
         </div>
       </div>

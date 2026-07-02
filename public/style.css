@@ -98,7 +98,7 @@ body.drawing-active::before { filter: contrast(1.05); }
   padding: 8px 30px;
   border: none;
   border-radius: 6px;
-  border-bottom: 3px solid transparent;
+  border-bottom: 5px solid transparent;
   cursor: pointer;
   color: var(--ink);
   background: rgba(247, 243, 233, 0.86);
@@ -106,9 +106,13 @@ body.drawing-active::before { filter: contrast(1.05); }
   transition: background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 .nav-tab:hover  { background: var(--rice-paper); }
+/* Stronger active state for low-vision users: thick seal-red underline,
+   bolder text, pure-white bg; inactive tabs slightly darker for contrast */
+.nav-tab { background: rgba(233, 226, 210, 0.9); }
 .nav-tab.active {
   background: #fff;
-  border-bottom-color: var(--wood);
+  font-weight: 700;
+  border-bottom: 5px solid var(--vermillion);
   box-shadow: 0 3px 9px rgba(0, 0, 0, 0.26);
 }
 
@@ -336,8 +340,10 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
   border-radius: 10px; padding: 10px 18px;
 }
 
-/* shared section header with jade underline */
-.portal-section { margin-top: clamp(26px, 3.4vw, 46px); }
+/* shared section header with jade underline.
+   Extra top spacing (item 6) so 我的作品／我的共繪／線稿庫 headings never land
+   half-clipped at the 720px fold — they sit clearly below the hero block. */
+.portal-section { margin-top: clamp(64px, 8vh, 120px); }
 .section-head {
   display: inline-block; margin: 0 0 16px; padding-bottom: 6px;
   font-size: 26px; color: var(--wood); border-bottom: 3px solid var(--jade);
@@ -361,20 +367,6 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
 .manage-list { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 12px; }
 .manage-list li { font-size: 22px; color: #3f332a; padding-left: 26px; position: relative; }
 .manage-list li::before { content: "·"; position: absolute; left: 8px; color: var(--vermillion); font-weight: 700; }
-.lineart-preview { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px; max-width: 760px; }
-.theme-card {
-  display: flex; align-items: center; gap: 14px; padding: 18px 20px;
-  background: rgba(247,243,233,0.82); border: 2px solid var(--mountain-mist);
-  border-radius: 10px; font-size: 22px; color: var(--wood);
-}
-.theme-card .theme-stamp {
-  flex: 0 0 34px; width: 34px; height: 34px; border-radius: 50%;
-  background: radial-gradient(circle at 36% 30%, #d9624f, var(--vermillion) 70%);
-}
-.theme-red { border-color: var(--vermillion); }
-.theme-green { border-color: var(--jade); }
-.theme-amber { border-color: var(--gold); }
-
 @media (max-width: 860px) {
   .portal-two { grid-template-columns: 1fr; }
   .portal-scope { font-size: 16px; }
@@ -481,34 +473,50 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
 /* ============================ Board layout =============================== */
 .board-layout { display: flex; gap: 22px; align-items: stretch; }
 
-/* §4.3.2 Stationery tray sidebar */
+/* §4.3.2 Stationery tray sidebar.
+   Compact so ALL controls fit a 720px viewport with no page scroll (§6.3).
+   If content ever overflows, the tray itself scrolls (max-height + overflow). */
 .stationery-tray {
   width: 260px;
   flex: 0 0 260px;
+  max-height: calc(100vh - 92px);   /* topbar 64 + main padding — 內部可捲 */
+  overflow-y: auto;
   background: linear-gradient(160deg, var(--wood), #553619);
   border-radius: 16px;
-  padding: 18px 16px;
+  padding: 10px 10px;
   box-shadow: inset 0 2px 6px rgba(255,255,255,0.08), 0 6px 18px rgba(0,0,0,0.3);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
+}
+/* Tools + aid toggles: compact 2-column grids (item 1) */
+.tool-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.aid-switch-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
 }
 .tool-item {
-  display: flex; align-items: center; gap: 14px;
+  display: flex; align-items: center; gap: 10px;
   min-height: var(--touch);
-  padding: 8px 14px;
+  padding: 6px 10px;
   background: var(--rice-paper);
   border-radius: 10px;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
+.tool-item.disabled { opacity: 0.45; }
 .tool-item:hover  { transform: translateY(-6px) rotate(2deg); box-shadow: 0 8px 16px rgba(0,0,0,0.3); }
 .tool-item.active { transform: rotate(3deg); box-shadow: 0 0 0 3px var(--gold), 0 6px 14px rgba(0,0,0,0.3); animation: bounce-drop 0.4s ease; }
 @keyframes bounce-drop { 0% { transform: translateY(-14px) rotate(3deg); } 60% { transform: translateY(3px) rotate(3deg); } 100% { transform: translateY(0) rotate(3deg); } }
 .tool-label { font-size: 22px; font-weight: 600; color: var(--ink); }
 
 /* Pure-CSS stationery icons */
-.tool-art { position: relative; width: 40px; height: 40px; flex: 0 0 40px; }
+.tool-art { position: relative; width: 34px; height: 34px; flex: 0 0 34px; }
 .tool-art.brush::before { /* shaft */
   content: ""; position: absolute; left: 17px; top: 0; width: 6px; height: 26px;
   background: linear-gradient(90deg, #7a4a1d, #a9692e); border-radius: 3px;
@@ -546,20 +554,24 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
   content: "清"; position: absolute; inset: 0; display: flex;
   align-items: center; justify-content: center; font-size: 24px; color: var(--vermillion);
 }
+.tool-art.undo::before {
+  content: "↩"; position: absolute; inset: 0; display: flex;
+  align-items: center; justify-content: center; font-size: 26px; color: var(--wood);
+}
 
-/* §4.3.3 Seal-ink box palette */
+/* §4.3.3 Seal-ink box palette — modestly shrunk to fit one screen, swatches ≥44px */
 .seal-ink-box {
-  display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
+  display: flex; flex-wrap: wrap; gap: 7px; justify-content: center;
   background: linear-gradient(150deg, #6b4423, #3f2814);
-  border-radius: 12px; padding: 14px;
+  border-radius: 12px; padding: 8px;
   box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
 }
 .ink-pad {
   border-radius: 50%; cursor: pointer; border: 2px solid rgba(0,0,0,0.25);
   position: relative; transition: transform 0.12s ease;
 }
-.ink-pad.primary   { width: 52px; height: 52px; }
-.ink-pad.secondary { width: 40px; height: 40px; }
+.ink-pad.primary   { width: 48px; height: 48px; }
+.ink-pad.secondary { width: 44px; height: 44px; }
 .ink-pad.selected  { box-shadow: 0 0 0 3px var(--gold); }
 .ink-pad:active    { transform: scale(0.88); }
 .ink-pad::after {
@@ -569,35 +581,42 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
 .ink-pad.splash::after { animation: ink-splash 0.45s ease-out; }
 @keyframes ink-splash { 0% { transform: scale(0); opacity: 0.6; } 100% { transform: scale(2.5); opacity: 0; } }
 .ink-pad.custom {
-  width: 52px; height: 52px; display: flex; align-items: center; justify-content: center;
+  width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
   border: 2px dashed var(--rice-paper); background: transparent; overflow: hidden;
 }
-.ink-pad.custom input { width: 60px; height: 60px; border: none; background: none; cursor: pointer; }
+.ink-pad.custom input { width: 56px; height: 56px; border: none; background: none; cursor: pointer; }
 
-/* 防手震 (One Euro Filter) switch */
+/* 防手震 (One Euro Filter) switch — compact, 2-up in .aid-switch-row */
 .aid-switch {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
   min-height: var(--touch);
-  padding: 8px 16px;
+  padding: 6px 4px;
   border: 2px solid rgba(255,255,255,0.25);
   border-radius: 10px;
   background: rgba(0,0,0,0.18);
   color: var(--rice-paper);
   font-family: var(--font); font-size: 22px; font-weight: 600;
   cursor: pointer;
+  overflow: hidden;
 }
+/* compact horizontal toggles in the 2-col row; tuned so the full 4-character
+   「單鍵創作」 fits without clipping (verified via scrollWidth measurement) */
+.aid-switch-row .aid-switch { font-size: 18px; gap: 4px; padding: 4px 3px; }
+.aid-switch-row .aid-switch .aid-knob { flex: 0 0 26px; width: 26px; }
 .aid-switch .aid-knob {
-  position: relative; flex: 0 0 52px;
-  width: 52px; height: 30px; border-radius: 15px;
+  position: relative; flex: 0 0 40px;
+  width: 40px; height: 24px; border-radius: 12px;
   background: var(--mountain-mist); transition: background 0.2s ease;
 }
+.aid-switch-row .aid-switch .aid-knob::after { transform: none; }
+.aid-switch-row .aid-switch.on .aid-knob::after { transform: translateX(10px); }
 .aid-switch .aid-knob::after {
   content: ""; position: absolute; top: 3px; left: 3px;
-  width: 24px; height: 24px; border-radius: 50%;
+  width: 18px; height: 18px; border-radius: 50%;
   background: var(--rice-paper); transition: transform 0.2s ease;
 }
 .aid-switch.on .aid-knob { background: var(--jade); }
-.aid-switch.on .aid-knob::after { transform: translateX(22px); }
+.aid-switch.on .aid-knob::after { transform: translateX(16px); }
 .aid-switch .aid-label { white-space: nowrap; }
 
 /* Single-switch scanning panel */
@@ -763,7 +782,17 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
   to { transform: scale(1.04); opacity: 1; }
 }
 
-.tray-actions { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
+/* Action buttons: 封存作品 primary full-width, secondary actions in a 2-col grid */
+.tray-actions { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
+.tray-actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tray-actions-grid > [hidden] { display: none; }
+/* When 提筆 is hidden during editing, 輸出觸覺圖 spans full width instead of
+   wrapping to two lines as a half-width orphan (verification fix). */
+.tray-actions-grid:has(> [hidden]) { grid-template-columns: 1fr; }
+/* compact action buttons in the tray so all fit without page scroll */
+.stationery-tray .big-btn { min-height: var(--touch); padding: 8px 12px; font-size: 22px; }
+.stationery-tray .tactile-btn { font-size: 20px; padding: 8px 8px; }
+.stationery-tray .back-btn { margin-top: 0; font-size: 20px; }
 
 /* §4.3.1 Window-scape canvas */
 .board-container { flex: 1; min-width: 0; }
@@ -1031,16 +1060,19 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
   .stationery-tray {
     order: 2;
     width: 100%; flex: 0 0 auto;
-    flex-direction: row; flex-wrap: wrap;
-    align-items: center; justify-content: center;
+    max-height: none; overflow: visible;   /* stacked layout — no inner scroll on mobile */
+    flex-direction: column;
+    align-items: stretch; justify-content: flex-start;
     gap: 10px;
   }
-  .tool-item { flex: 1 1 140px; max-width: 220px; }
-  .seal-ink-box { flex: 1 1 100%; }
-  .aid-switch { flex: 1 1 100%; justify-content: center; }
-  .tray-actions { order: 99; margin: 0; flex-direction: row; flex-wrap: wrap; width: 100%; }
-  .tray-actions .big-btn { flex: 1 1 140px; }
-  .tray-actions .back-btn { flex: 1 1 120px; margin-top: 0; }
+  .tool-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .aid-switch-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .tool-item { flex: none; max-width: none; }
+  .seal-ink-box { width: 100%; }
+  .aid-switch { justify-content: center; }
+  .tray-actions { order: 99; margin: 0; width: 100%; }
+  .tray-actions-grid { grid-template-columns: 1fr 1fr; }
+  .stationery-tray .back-btn { margin-top: 0; }
   .scan-options { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
   .scan-options.scan-step-position { grid-template-columns: repeat(3, minmax(76px, 1fr)); }
   .scan-option { min-height: 86px; }
@@ -1060,9 +1092,33 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
 @media (max-width: 480px) {
   .topbar { gap: 10px; padding: 0 12px; height: 58px; }
   .logo { font-size: 22px; letter-spacing: 1px; }
-  .nav-tab { font-size: 18px; padding: 6px 12px; min-height: 48px; }
-  .tool-item { flex-basis: 100%; max-width: none; }
+  /* item 4: nav tabs must be ≥56px touch targets */
+  .nav-tab { font-size: 18px; padding: 6px 12px; min-height: 56px; }
   .tool-label { font-size: 20px; }
+
+  /* item 3: mobile board — no horizontal overflow */
+  main { overflow-x: hidden; }
+  .board-layout { gap: 10px; }
+  /* canvas ~45vh at top, min 300px */
+  .canvas-stack { aspect-ratio: auto; height: 45vh; min-height: 300px; }
+  .window-pane { max-width: 100%; }
+  /* two-column tool + toggle grids stay compact on phones */
+  .tool-grid { grid-template-columns: repeat(2, 1fr); }
+  .aid-switch-row { grid-template-columns: repeat(2, 1fr); }
+  .tool-item { padding: 6px 8px; }
+
+  /* item 3: keep 封存作品 + ← 返回 always reachable via a sticky bottom bar */
+  .tray-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    padding: 10px;
+    margin: 0 -8px -4px;
+    background: var(--rice-paper);
+    border-top: 2px solid var(--wood);
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.12);
+  }
+  .tray-actions-grid { grid-template-columns: 1fr 1fr; }
   .cat-bubble { max-width: 150px; font-size: 16px; }
   #room-code-input { width: 100%; max-width: 240px; }
   .multi-entry-box { gap: 16px; }

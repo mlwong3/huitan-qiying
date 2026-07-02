@@ -73,6 +73,8 @@
     editing: false,
     filterEnabled: true,   // One Euro Filter anti-tremor (toggleable)
     pf: null,              // PointFilter instance
+    history: [],           // undo stack of canvas snapshots (local strokes only)
+    HISTORY_MAX: 20,       // cap so 20 大筆 don't eat memory
 
     init() {
       this.canvas = $('#paint-canvas');
@@ -97,9 +99,52 @@
       this.editing = true;
       this.canvas.classList.add('editing');
       document.body.classList.add('drawing-active');
+      this.resetHistory();  // 新畫紙／新一張作品：清空復原紀錄
       $('#btn-pickup').hidden = true;
       $('#btn-finish').hidden = false;
       catLogic.say('開始畫啦，慢慢嚟～');
+    },
+
+    // §9.x 復原 (undo) — snapshot-based, LOCAL single-user strokes only.
+    // 共繪 (multi) 房間透過 socket 繪畫，分散式復原太複雜，故在多人模式停用。
+    pushHistory() {
+      if (board.isMulti()) return;   // 多人模式不記錄本地復原
+      try {
+        this.history.push(this.canvas.toDataURL('image/png'));
+        if (this.history.length > this.HISTORY_MAX) this.history.shift();
+        this.syncUndoButton();
+      } catch (e) { /* toDataURL 可能受污染，忽略即可 */ }
+    },
+
+    resetHistory() {
+      this.history = [];
+      this.syncUndoButton();
+    },
+
+    undo() {
+      if (board.isMulti()) return;   // 多人模式無本地復原
+      if (!this.history.length) {
+        feedbackLayer.say('冇得再復原喇');
+        return;
+      }
+      const snapshot = this.history.pop();
+      const img = new Image();
+      img.onload = () => {
+        this.ctx.globalCompositeOperation = 'source-over';
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
+        this.syncUndoButton();
+      };
+      img.src = snapshot;
+      feedbackLayer.say('已復原一筆');
+    },
+
+    // 多人模式隱藏復原掣；單人模式按有無紀錄調暗
+    syncUndoButton() {
+      const btn = $('#tool-undo');
+      if (!btn) return;
+      btn.hidden = board.isMulti();
+      btn.classList.toggle('disabled', !this.history.length);
     },
 
     bindEvents() {
@@ -118,6 +163,8 @@
       if (!this.editing) return;
       if (signal.action === 'down') {
         this.isDrawing = true;
+        // 每一筆開始前先拍低快照，供「復原」回退
+        this.pushHistory();
         if (this.filterEnabled && this.pf) this.pf.reset();
         this.lastPos = this.smooth(signal.x, signal.y);
         if (this.onMove) this.onMove(this.lastPos, true);
@@ -233,9 +280,11 @@
 
     clear() {
       if (!confirm('確定要清空畫布嗎？')) return;
+      this.pushHistory();   // 清空前拍快照，令「清空」都可以復原
       this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
       $('.canvas-stack').classList.add('cleared');
       catLogic.say('清乾淨啦！');
+      this.syncUndoButton();
     },
 
     buildPalette() {
@@ -389,6 +438,7 @@
       if (has('綠色', 'green')) { painter.setColor('#228b22'); return this.say('綠色'); }
       if (has('白色', 'white')) { painter.setColor('#ffffff'); return this.say('白色'); }
 
+      if (has('復原', '返轉頭', 'undo')) return painter.undo();
       if (has('清空', '全部刪除', 'clear')) return painter.clear();
       if (has('保存', '存圖', 'save')) return app.downloadCanvas();
       if (has('換圖', '線稿', 'lineart')) return app.switchMode('single');
@@ -1039,6 +1089,7 @@
     bindBoard() {
       $$('.tool-item').forEach((item) => {
         item.addEventListener('click', () => {
+          if (item.dataset.action === 'undo') return painter.undo();
           if (item.dataset.action === 'clear') return painter.clear();
           painter.setTool(item.dataset.tool);
         });
@@ -1126,6 +1177,7 @@
       $('#btn-finish').hidden = true;
       painter.editing = false;
       painter.canvas.classList.remove('editing');
+      painter.resetHistory();       // 開新畫板／入房：重設復原紀錄並同步復原掣顯示
       $('#room-banner').hidden = !board.isMulti();
       this.showScreen('#screen-board');
     },
