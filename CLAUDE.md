@@ -24,7 +24,8 @@ huitan-qiying/
 │   └── script.js    # painter / scanController / feedbackLayer / board / app modules
 ├── linearts/        # uploaded line-art (gitignored, .gitkeep tracked)
 ├── elements/        # reserved
-└── uploads/         # reserved scratch
+├── uploads/         # reserved scratch
+└── hardware/        # ESP32 + ELB070681 joystick BLE-keyboard firmware + wiring guide
 ```
 
 ## Common modification points (§16.1)
@@ -53,7 +54,9 @@ huitan-qiying/
   Figma-exported New Chinese Style background. Keep entry text, buttons, inputs, and cards
   as real HTML/CSS elements. Do not apply this portal styling to the board internals.
 - ESP32 joystick integration should call `window.huitanAssistiveInput.move(dx, dy)`,
-  `confirm()`, and `back()`. Keyboard arrow keys are the current fallback.
+  `confirm()`, and `back()`. Keyboard arrow keys are the current fallback — and a real
+  ESP32 + ELB070681 joystick firmware now drives that exact fallback by emulating a BLE
+  keyboard (no web app changes). See `hardware/` for the Arduino sketch and wiring guide.
 - Security: hardcoded password, plaintext transmission — prototype only (§14).
 
 ## Cloud Run deployment
