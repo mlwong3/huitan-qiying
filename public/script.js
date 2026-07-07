@@ -1247,10 +1247,20 @@
       }
     },
 
-    // §9.3 finishing workflow
-    finishDrawing() {
+    // §9.3 finishing workflow — composites 線稿/舊作品背景 + 筆觸 + 已放置圖元成
+    // 一張完整快照，等「攞返上畫板繼續畫」之後再封存都會完整包含舊內容。
+    async finishDrawing() {
       if (!painter.editing) return;
-      const dataURL = painter.canvas.toDataURL('image/png');
+      const w = painter.canvas.width;
+      const h = painter.canvas.height;
+      const out = document.createElement('canvas');
+      out.width = w;
+      out.height = h;
+      const ctx = out.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+      await this.drawBoardSnapshot(ctx, w, h);
+      const dataURL = out.toDataURL('image/png');
       this.playSealCeremony(() => {
         const el = {
           id: Date.now(),
@@ -1314,6 +1324,8 @@
       works.forEach((w) => {
         const card = document.createElement('div');
         card.className = 'gallery-card';
+        card.title = '撳一下攞返上畫板繼續畫';
+        card.addEventListener('click', () => this.openBoard(w.img));
         const img = document.createElement('img');
         img.src = w.img;
         const date = document.createElement('div');
