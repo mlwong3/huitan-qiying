@@ -522,7 +522,7 @@
       document.addEventListener('click', (e) => {
         if (!scanController.active) return;
         if (e.target.closest('#btn-scan-mode')) return;
-        if (e.target.closest('.scan-option, #scan-confirm, .joystick-key')) return;
+        if (e.target.closest('.scan-option, #scan-confirm')) return;
         if (e.target.closest('#scan-panel, .canvas-stack')) {
           e.preventDefault();
           this.emit({ type: 'confirm', source: 'pointer' });
@@ -552,12 +552,11 @@
     timer: null,
     selections: {},
     placement: { x: 50, y: 50 },
-    steps: ['element', 'color', 'position', 'confirm'],
+    steps: ['element', 'color', 'position'],
     stepNames: {
       element: '選圖元',
       color: '選顏色',
       position: '選位置',
-      confirm: '確認放置',
     },
 
     init() {
@@ -645,8 +644,7 @@
       const step = this.currentStep();
       if (step === 'element') return SCAN_ELEMENTS;
       if (step === 'color') return SCAN_COLORS;
-      if (step === 'position') return [];
-      return [{ key: 'place', name: '放置圖元' }];
+      return []; // position: 冇卡片選項，靠方向鍵／點擊畫面直接落位（見 movePlacement/confirmCurrent）
     },
 
     render() {
@@ -660,7 +658,8 @@
       this.optionsBox.className = 'scan-options scan-step-' + step;
 
       if (step === 'position') {
-        this.renderPositionControl();
+        // 冇按鈕、冇座標文字——淨係靠方向鍵／點擊畫面郁動同確認（見上面 hint），
+        // 咁樣先唔會搶走畫布高度（§6.3）。
         this.showPlacementPreview();
         return;
       }
@@ -675,7 +674,7 @@
         btn.type = 'button';
         btn.appendChild(this.optionVisual(step, opt));
         const label = document.createElement('span');
-        label.textContent = step === 'confirm' ? this.summaryText() : opt.name;
+        label.textContent = opt.name;
         btn.appendChild(label);
         btn.addEventListener('click', (e) => {
           e.preventDefault();
@@ -686,18 +685,13 @@
       });
     },
 
+    // 只有 'element'／'color' 兩步先會行到呢度（'position' 喺 render() 已經 return）。
     optionVisual(step, opt) {
       const visual = document.createElement('span');
       visual.className = 'scan-visual';
       if (step === 'color') {
         visual.classList.add('color');
         visual.style.background = opt.hex;
-      } else if (step === 'position') {
-        visual.classList.add('position');
-        visual.textContent = opt.row + '-' + opt.col;
-      } else if (step === 'confirm') {
-        visual.classList.add('confirm');
-        visual.textContent = '放';
       } else {
         visual.classList.add('element');
         visual.textContent = opt.short;
@@ -722,20 +716,17 @@
         return this.advance();
       }
       if (step === 'position') {
+        // 確認位置即刻放置圖元，唔使再多一步「確認放置」（§6.3）。
         this.selections.position = this.currentPosition();
-        feedbackLayer.say('位置已確認，' + this.selections.position.name);
+        app.placeScanElement(this.selections);
+        this.stepIndex = 0;
+        this.optionIndex = 0;
+        this.selections = {};
+        this.placement = { x: DEFAULT_SCAN_POSITION.x, y: DEFAULT_SCAN_POSITION.y };
         this.hidePlacementPreview();
-        return this.advance();
+        this.render();
+        this.restartTimer();
       }
-
-      app.placeScanElement(this.selections);
-      this.stepIndex = 0;
-      this.optionIndex = 0;
-      this.selections = {};
-      this.placement = { x: DEFAULT_SCAN_POSITION.x, y: DEFAULT_SCAN_POSITION.y };
-      this.hidePlacementPreview();
-      this.render();
-      this.restartTimer();
     },
 
     advance() {
@@ -743,50 +734,6 @@
       this.optionIndex = 0;
       this.render();
       this.restartTimer();
-    },
-
-    summaryText() {
-      const el = this.selections.element && this.selections.element.name;
-      const color = this.selections.color && this.selections.color.name;
-      const pos = this.selections.position && this.selections.position.name;
-      return '放下' + (color || '') + (el || '圖元') + (pos ? '於' + pos : '');
-    },
-
-    renderPositionControl() {
-      const wrap = document.createElement('div');
-      wrap.className = 'joystick-panel';
-      wrap.innerHTML = '';
-
-      const pad = document.createElement('div');
-      pad.className = 'joystick-pad';
-      const buttons = [
-        { cls: 'up', label: '上', dx: 0, dy: -JOYSTICK_STEP },
-        { cls: 'left', label: '左', dx: -JOYSTICK_STEP, dy: 0 },
-        { cls: 'center', label: '位置', dx: 0, dy: 0 },
-        { cls: 'right', label: '右', dx: JOYSTICK_STEP, dy: 0 },
-        { cls: 'down', label: '下', dx: 0, dy: JOYSTICK_STEP },
-      ];
-      buttons.forEach((b) => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'joystick-key ' + b.cls;
-        btn.textContent = b.label;
-        if (b.cls !== 'center') {
-          btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            this.movePlacement(b.dx, b.dy);
-          });
-        }
-        pad.appendChild(btn);
-      });
-
-      const readout = document.createElement('p');
-      readout.className = 'joystick-readout';
-      readout.textContent = this.currentPosition().name;
-
-      wrap.appendChild(pad);
-      wrap.appendChild(readout);
-      this.optionsBox.appendChild(wrap);
     },
 
     movePlacement(dx, dy) {

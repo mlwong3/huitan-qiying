@@ -705,8 +705,6 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
   grid-template-columns: repeat(5, minmax(110px, 1fr));
   gap: 12px;
 }
-.scan-options.scan-step-position { grid-template-columns: repeat(3, minmax(92px, 1fr)); }
-.scan-options.scan-step-confirm { grid-template-columns: 1fr; }
 .scan-option {
   min-height: 96px;
   border: 3px solid var(--wood);
@@ -745,15 +743,6 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
   border: 4px solid #fff;
   box-shadow: 0 0 0 2px var(--wood);
 }
-.scan-visual.position {
-  border-radius: 8px;
-  background: var(--jade);
-  font-size: 20px;
-}
-.scan-visual.confirm {
-  border-radius: 8px;
-  background: var(--vermillion);
-}
 .scan-confirm {
   width: 100%;
   min-height: var(--touch);
@@ -766,57 +755,6 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
   font-size: 24px;
   font-weight: 700;
   cursor: pointer;
-}
-.joystick-panel {
-  display: grid;
-  grid-template-columns: minmax(220px, 320px) 1fr;
-  gap: 18px;
-  align-items: center;
-}
-.joystick-pad {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(64px, 1fr));
-  grid-template-areas:
-    ". up ."
-    "left center right"
-    ". down .";
-  gap: 10px;
-}
-.joystick-key {
-  min-height: 64px;
-  border: 3px solid var(--wood);
-  border-radius: 8px;
-  background: #fffaf0;
-  color: var(--wood);
-  font-family: var(--font);
-  font-size: 22px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.12);
-}
-.joystick-key:active {
-  transform: scale(0.96);
-  background: #fff4c8;
-}
-.joystick-key.up { grid-area: up; }
-.joystick-key.left { grid-area: left; }
-.joystick-key.center {
-  grid-area: center;
-  background: var(--gold);
-  color: #2a230a;
-  cursor: default;
-}
-.joystick-key.right { grid-area: right; }
-.joystick-key.down { grid-area: down; }
-.joystick-readout {
-  margin: 0;
-  padding: 14px 18px;
-  border: 2px solid rgba(107,68,35,0.35);
-  border-radius: 8px;
-  background: rgba(255,255,255,0.72);
-  color: var(--wood);
-  font-size: 22px;
-  line-height: 1.5;
 }
 #scan-placement-preview {
   position: absolute;
@@ -1124,10 +1062,7 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
   .tray-actions { order: 99; margin: 0; width: 100%; }
   .stationery-tray .back-btn { margin-top: 0; }
   .scan-options { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
-  .scan-options.scan-step-position { grid-template-columns: repeat(3, minmax(76px, 1fr)); }
   .scan-option { min-height: 86px; }
-  .joystick-panel { grid-template-columns: 1fr; }
-  .joystick-readout { font-size: 20px; }
 
   .cat { transform: scale(0.7); }
   .nav-tab { padding: 8px 18px; clip-path: none !important; }
@@ -1171,16 +1106,11 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
   .cat-bubble { max-width: 150px; font-size: 16px; }
   #room-code-input { width: 100%; max-width: 240px; }
   .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
-  .scan-options,
-  .scan-options.scan-step-position {
-    grid-template-columns: 1fr;
-  }
+  .scan-options { grid-template-columns: 1fr; }
   .scan-status { align-items: flex-start; }
   .scan-step { font-size: 24px; }
   .scan-hint { font-size: 16px; }
   .portal-title { font-size: 38px; }
   .portal-copy { font-size: 19px; }
   .portal-kicker, .portal-label { font-size: 16px; }
-  .joystick-pad { grid-template-columns: repeat(3, minmax(54px, 1fr)); }
-  .joystick-key { min-height: 56px; font-size: 20px; }
 }
