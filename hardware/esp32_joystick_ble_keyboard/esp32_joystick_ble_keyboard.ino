@@ -1,4 +1,4 @@
-// 繪壇耆英 · ESP32 + ELB070681 搖桿 → 藍牙鍵盤
+// 繪畫耆才 · ESP32 + ELB070681 搖桿 → 藍牙鍵盤
 //
 // 將 ELB070681 遊戲手掣模組（PS2 式雙軸搖桿 + SW + K1-K4 按鈕）接駁到普通 ESP32
 // （CP2102 版，無原生 USB），扮成一部藍牙 (BLE) 鍵盤，直接命中網站 public/script.js
@@ -16,9 +16,11 @@
 //
 // 需要嘅 Arduino Library（Library Manager 安裝）：
 //   1. "ESP32 BLE Keyboard" — 作者 T-vK
-//   2. "NimBLE-Arduino"     — 作者 h2zero（配合下面 USE_NIMBLE 提供更慳資源、更穩定嘅 BLE 堆疊）
+// 淨係裝呢個就夠，唔使裝 NimBLE-Arduino：呢個 library 未跟得切 NimBLE-Arduino 最新版嘅
+// API（會出現 'NimBLEAdvertising' does not name a type 呢類編譯錯誤），故此改用 library
+// 內建、隨 ESP32 core 附帶嘅經典 Bluedroid BLE 堆疊——犧牲少少 flash/RAM，但保證編譯到、
+// 穩陣。詳見 hardware/README.md 嘅「常見問題」。
 
-#define USE_NIMBLE
 #include <BleKeyboard.h>
 
 // ---------- 接線腳位 ----------
@@ -39,7 +41,7 @@ const unsigned long REPEAT_INTERVAL    = 380;  // 自動連發嘅間隔
 const unsigned long BTN_DEBOUNCE_MS = 80;
 const unsigned long BTN_COOLDOWN_MS = 450;
 
-BleKeyboard bleKeyboard("繪壇耆英 Joystick", "Huitan Qiying", 100);
+BleKeyboard bleKeyboard("繪畫耆才 Joystick", "Huihua Qicai", 100);
 
 bool fineMode = false;           // K2 切換：開啟後方向鍵連同 Shift 一齊送出
 unsigned long lastMoveFireAt = 0;
@@ -56,7 +58,7 @@ void setup() {
   // VRx/VRy 係純類比輸入，唔使 pinMode。
 
   bleKeyboard.begin();
-  Serial.println("繪壇耆英 Joystick — BLE 廣播中，請喺電腦/平板藍牙設定連接。");
+  Serial.println("繪畫耆才 Joystick — BLE 廣播中，請喺電腦/平板藍牙設定連接。");
 }
 
 void loop() {

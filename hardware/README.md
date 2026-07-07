@@ -43,20 +43,21 @@
 
 1. **開發板**：Tools → Board → 選 "ESP32 Dev Module"（或你塊板嘅對應型號）。
 2. **安裝 Library**（Sketch → Include Library → Manage Libraries）：
-   - `ESP32 BLE Keyboard`（作者 **T-vK**）
-   - `NimBLE-Arduino`（作者 **h2zero**）—— 令 BLE 用 NimBLE 堆疊，比預設 Bluedroid
-     慳成半 flash、更穩定（減少斷線後重新配對嘅已知問題）。
+   - `ESP32 BLE Keyboard`（作者 **T-vK**）—— 淨係裝呢個就夠。
+   - **唔使裝 `NimBLE-Arduino`**：呢個 library 未跟得切 NimBLE-Arduino 最新版嘅 API，
+     裝咗會編譯錯誤（見下面「常見問題」）。Sketch 用返 library 內建、隨 ESP32 core
+     附帶嘅經典 Bluedroid BLE 堆疊——慢少少、食多少少 flash/RAM，但穩陣、即刻編譯到。
 3. 打開 `esp32_joystick_ble_keyboard/esp32_joystick_ble_keyboard.ino`，燒錄到板。
 4. 打開 Serial Monitor（115200 baud），應該見到：
    ```
-   繪壇耆英 Joystick — BLE 廣播中，請喺電腦/平板藍牙設定連接。
+   繪畫耆才 Joystick — BLE 廣播中，請喺電腦/平板藍牙設定連接。
    ```
 
 ---
 
 ## 配對步驟
 
-- **Windows / macOS / Android**：藍牙設定入面應該會見到「繪壇耆英 Joystick」，揀嚟配對，
+- **Windows / macOS / Android**：藍牙設定入面應該會見到「繪畫耆才 Joystick」，揀嚟配對，
   通常會自動連上。
 - **iPad / iOS**：設定 → 藍牙 → 見到裝置後**要手動撳一下「連接」**——第一次配對唔會自動連上。
   配對後日後開機會自動重連（唔使每次都手動連），所以示範前建議提早配對好一次。
@@ -70,7 +71,7 @@
 1. 配對成功後，開一個純文字編輯器（例如記事本），撥動搖桿確認打出方向鍵字元；
    撳 SW/K1 確認打出 Enter/Escape；撳住 K2 切換後再撥動，確認方向鍵連同 Shift
    一齊送出（文字編輯器入面 Shift+方向鍵通常會反白選字，可以用嚟目測驗證）。
-2. 打開繪壇耆英網站 → 獨畫 → 揀畫紙 → 撳「單鍵創作」→ 撥動搖桿，確認畫面圖示
+2. 打開繪畫耆才網站 → 獨畫 → 揀畫紙 → 撳「單鍵創作」→ 撥動搖桿，確認畫面圖示
    跟住郁動；撳 SW 確認選項/放置；撳 K1 返回上一步；撳 K2 切換後再撥動，
    確認步幅變細（微調）。全程唔使開瀏覽器開發者工具——扮鍵盤同用真鍵盤操作一致。
 
@@ -83,3 +84,11 @@
 - **手一放開搖桿都繼續郁**：檢查 VCC 係咪接咗 3.3V 而唔係 5V（電壓錯會令中心值飄移，
   超出死區）；亦可以喺 sketch 入面調大 `DEADZONE`。
 - **撳一下掣變咗兩下確認/返回**：可以調大 `BTN_COOLDOWN_MS`（現時 450ms）。
+- **編譯錯誤 `'NimBLEAdvertising' does not name a type`／`expected class-name before ',' token`**：
+  代表你裝咗 `NimBLE-Arduino` 而且版本太新，同 `ESP32 BLE Keyboard` library 期望嘅
+  舊版 NimBLE API 唔匹配。修法：喺 Arduino IDE 嘅 Library Manager 移除／唔裝
+  `NimBLE-Arduino`，確認 sketch 頂部**冇** `#define USE_NIMBLE`（本 sketch 預設已經冇
+  呢行），淨係用 `ESP32 BLE Keyboard` 呢個 library 就可以編譯到（走經典 Bluedroid 路徑）。
+  如果你堅持想用 NimBLE 慳資源，需要透過 Library Manager 手動揀返一個較舊嘅
+  NimBLE-Arduino 版本（約 1.4.x）先會同呢個 library 相容——一般示範用途唔建議咁做，
+  夠用就好，唔使追求極致效能。

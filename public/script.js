@@ -1,5 +1,5 @@
 /* ===========================================================================
-   繪壇耆英 · script.js — all frontend logic
+   繪畫耆才 · script.js — all frontend logic
    Engineering Notes v3.1 · §6, §9, §10, §11, §12
    =========================================================================== */
 (function () {
@@ -64,7 +64,7 @@
     canvas: null,
     ctx: null,
     color: '#000000',
-    lineWidth: 10,         // Fixed in v3.1
+    lineWidth: 10,         // 粗幼滑桿 #brush-size 調節（4–28）
     tool: 'pen',           // 'pen' | 'zen' | 'eraser'
     mirrorMode: false,
     zenPatternIndex: 0,    // 0:dot 1:grid 2:line 3:circle
@@ -100,7 +100,6 @@
       this.canvas.classList.add('editing');
       document.body.classList.add('drawing-active');
       this.resetHistory();  // 新畫紙／新一張作品：清空復原紀錄
-      $('#btn-pickup').hidden = true;
       $('#btn-finish').hidden = false;
       catLogic.say('開始畫啦，慢慢嚟～');
     },
@@ -868,14 +867,6 @@
     ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
   }
 
-  function escapeXml(text) {
-    return String(text)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
-
   // ====================================================================== //
   //  Board element system (§10) + multiplayer (§12)
   // ====================================================================== //
@@ -1096,15 +1087,13 @@
         });
       });
       $('#window-latch').addEventListener('click', () => painter.clear());
-      $('#btn-pickup').addEventListener('click', () => painter.openCanvas());
       $('#btn-finish').addEventListener('click', () => this.finishDrawing());
       $('#btn-scan-mode').addEventListener('click', () => scanController.toggle());
-      $('#btn-tactile-export').addEventListener('click', () => this.exportTactile());
-      $('#tactile-close').addEventListener('click', () => { $('#tactile-output').hidden = true; });
-      $('#btn-leave-board').addEventListener('click', () => {
-        scanController.stop(false);
-        board.roomId = null;
-        this.switchMode(this.mode === 'multi' ? 'multi' : 'single');
+      $('#btn-leave-board').addEventListener('click', () => this.leaveBoard());
+      $('#btn-change-lineart').addEventListener('click', () => this.leaveBoard());
+      $('#btn-save-image').addEventListener('click', () => this.saveImage());
+      $('#brush-size').addEventListener('input', (e) => {
+        painter.lineWidth = parseInt(e.target.value, 10);
       });
       $('#elements-layer').addEventListener('mousedown', (e) => {
         if (e.target.id === 'elements-layer') board.deselect();
@@ -1174,13 +1163,17 @@
       const bg = $('#board-bg');
       if (bgImage) { bg.src = bgImage; bg.hidden = false; }
       else { bg.hidden = true; }
-      $('#btn-pickup').hidden = false;
-      $('#btn-finish').hidden = true;
-      painter.editing = false;
-      painter.canvas.classList.remove('editing');
-      painter.resetHistory();       // 開新畫板／入房：重設復原紀錄並同步復原掣顯示
+      painter.openCanvas();  // 提筆步驟已取消：一開板即可直接畫
       $('#room-banner').hidden = !board.isMulti();
       this.showScreen('#screen-board');
+    },
+
+    // Shared by 返回觀賞 (sidebar) and 換線稿 (canvas toolbar) — both leave the
+    // current board back to the paper/gallery entry for the active mode.
+    leaveBoard() {
+      scanController.stop(false);
+      board.roomId = null;
+      this.switchMode(this.mode === 'multi' ? 'multi' : 'single');
     },
 
     placeScanElement(selection) {
@@ -1213,20 +1206,9 @@
       feedbackLayer.say('已放下' + color.name + element.name);
     },
 
-    async exportTactile() {
-      const result = await this.buildTactileOutput();
-      $('#tactile-preview').src = result.png;
-      $('#tactile-description').textContent = result.description;
-      $('#tactile-download-png').href = result.png;
-      const svgBlob = new Blob([result.svg], { type: 'image/svg+xml;charset=utf-8' });
-      if (this._lastSvgUrl) URL.revokeObjectURL(this._lastSvgUrl);
-      this._lastSvgUrl = URL.createObjectURL(svgBlob);
-      $('#tactile-download-svg').href = this._lastSvgUrl;
-      $('#tactile-output').hidden = false;
-      feedbackLayer.say('已準備觸覺圖。' + result.description);
-    },
-
-    async buildTactileOutput() {
+    // 保存圖片 (canvas toolbar) — plain-color PNG of the current board, distinct
+    // from 封存作品 (which seals the work into the gallery).
+    async saveImage() {
       const w = painter.canvas.width;
       const h = painter.canvas.height;
       const out = document.createElement('canvas');
@@ -1235,20 +1217,12 @@
       const ctx = out.getContext('2d');
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, w, h);
-
       await this.drawBoardSnapshot(ctx, w, h);
-      this.thresholdCanvas(out);
-
-      const png = out.toDataURL('image/png');
-      const description = this.describeWork();
-      const svg = [
-        '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">',
-        '<rect width="100%" height="100%" fill="#ffffff"/>',
-        '<image href="' + png + '" width="' + w + '" height="' + h + '"/>',
-        '<desc>' + escapeXml(description) + '</desc>',
-        '</svg>',
-      ].join('');
-      return { png, svg, description };
+      const a = document.createElement('a');
+      a.download = '繪畫耆才-作品.png';
+      a.href = out.toDataURL('image/png');
+      a.click();
+      feedbackLayer.say('圖片已下載');
     },
 
     async drawBoardSnapshot(ctx, w, h) {
@@ -1273,47 +1247,6 @@
       }
     },
 
-    thresholdCanvas(canvas) {
-      const ctx = canvas.getContext('2d');
-      const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = img.data;
-      for (let i = 0; i < data.length; i += 4) {
-        const alpha = data[i + 3];
-        const lum = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-        const mark = alpha > 25 && lum < 245;
-        data[i] = mark ? 0 : 255;
-        data[i + 1] = mark ? 0 : 255;
-        data[i + 2] = mark ? 0 : 255;
-        data[i + 3] = 255;
-      }
-      ctx.putImageData(img, 0, 0);
-    },
-
-    describeWork() {
-      const parts = [];
-      const counts = {};
-      $$('#elements-layer .board-element').forEach((node) => {
-        const color = node.dataset.colorName || '';
-        const name = node.dataset.elementName || '作品';
-        const key = color + name;
-        counts[key] = { text: key, count: (counts[key] ? counts[key].count : 0) + 1 };
-      });
-      Object.values(counts).forEach((item) => {
-        parts.push(item.count > 1 ? item.text + item.count + '個' : item.text);
-      });
-      if (this.hasCanvasMarks()) parts.push('自由繪畫線條');
-      if (!parts.length) return '作品暫未包含可辨識圖元。';
-      return '作品包含' + parts.join('、') + '。';
-    },
-
-    hasCanvasMarks() {
-      const data = painter.ctx.getImageData(0, 0, painter.canvas.width, painter.canvas.height).data;
-      for (let i = 3; i < data.length; i += 16) {
-        if (data[i] > 10) return true;
-      }
-      return false;
-    },
-
     // §9.3 finishing workflow
     finishDrawing() {
       if (!painter.editing) return;
@@ -1332,11 +1265,7 @@
           this.saveWork(dataURL, el.date);
         }
         painter.ctx.clearRect(0, 0, painter.canvas.width, painter.canvas.height);
-        painter.editing = false;
-        painter.canvas.classList.remove('editing');
-        document.body.classList.remove('drawing-active');
-        $('#btn-finish').hidden = true;
-        $('#btn-pickup').hidden = false;
+        painter.openCanvas();  // 提筆步驟已取消：封存後即刻可以再畫下一幅
         catLogic.say('封存好啦，真係好靚！');
       });
     },
@@ -1357,7 +1286,7 @@
     downloadCanvas() {
       const a = document.createElement('a');
       a.href = painter.canvas.toDataURL('image/png');
-      a.download = `繪壇耆英-${Date.now()}.png`;
+      a.download = `繪畫耆才-${Date.now()}.png`;
       a.click();
       catLogic.say('已經幫你存圖喇');
     },

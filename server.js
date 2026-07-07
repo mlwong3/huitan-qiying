@@ -1,4 +1,4 @@
-// 繪壇耆英 (Huitan Qiying) — Express + Socket.IO server
+// 繪畫耆才 (Huihua Qicai) — Express + Socket.IO server
 // Engineering Notes v3.1 — single-node deployment, in-memory room state.
 
 const express = require('express');
@@ -256,5 +256,5 @@ function safeHex(v) {
 }
 
 server.listen(PORT, () => {
-  console.log(`繪壇耆英 running at http://localhost:${PORT}`);
+  console.log(`繪畫耆才 running at http://localhost:${PORT}`);
 });

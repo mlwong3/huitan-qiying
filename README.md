@@ -1,8 +1,8 @@
-# 繪壇耆英 · Huitan Qiying
+# 繪畫耆才 · Huihua Qicai
 
 > 為長者及不同能力人士而設的共融數位創作平台 — An inclusive real-time creative and wellbeing platform for older adults and people with different abilities, in a New Chinese Style (新中式) aesthetic.
 
-繪壇耆英 將數位介面轉化成長者熟悉的實體隱喻 —— 窗框、文具、貓咪、宣紙、印章 —— 降低數位創作的認知門檻。作品由「長者畫畫工具」升級為「共融創作及身心健康平台」，對應心理健康、身體健康、社交聯繫及無障礙護理四個支柱。系統建基於 Node.js / Express + Socket.IO，支援獨畫、共繪、單鍵圖元創作、觸覺圖輸出及掌櫃線稿管理。
+繪畫耆才 將數位介面轉化成長者熟悉的實體隱喻 —— 窗框、文具、貓咪、宣紙、印章 —— 降低數位創作的認知門檻。作品由「長者畫畫工具」升級為「共融創作及身心健康平台」，對應心理健康、身體健康、社交聯繫及無障礙護理四個支柱。系統建基於 Node.js / Express + Socket.IO，支援獨畫、共繪、單鍵圖元創作、觸覺圖輸出及掌櫃線稿管理。
 
 ## ✨ 特色
 

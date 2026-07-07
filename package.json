@@ -1,7 +1,7 @@
 {
-  "name": "huitan-qiying",
-  "version": "3.8.0",
-  "description": "繪壇耆英 — An inclusive real-time creative & wellbeing platform for older adults and people with different abilities (New Chinese Style).",
+  "name": "huihua-qicai",
+  "version": "3.9.0",
+  "description": "繪畫耆才 — An inclusive real-time creative & wellbeing platform for older adults and people with different abilities (New Chinese Style).",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

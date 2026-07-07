@@ -1,4 +1,4 @@
-# 繪壇耆英 · 運維指南（部署教學 · 優化 · 待辦）
+# 繪畫耆才 · 運維指南（部署教學 · 優化 · 待辦）
 
 本檔提供：① 如何把新程式碼更新到 GitHub 與 Google Cloud Run；② 可優化的地方；③ 待辦事項。
 （功能版本歷史見 [`CHANGELOG.md`](CHANGELOG.md)；維護結構見 [`CLAUDE.md`](CLAUDE.md) / [`AGENTS.md`](AGENTS.md)。）

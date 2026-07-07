@@ -1,4 +1,4 @@
-// 繪壇耆英 — line-art storage abstraction.
+// 繪畫耆才 — line-art storage abstraction.
 // If STORAGE_BUCKET is set, persist to Firebase Storage (Google Cloud Storage)
 // via firebase-admin with Application Default Credentials (Cloud Run provides
 // these automatically). Otherwise fall back to local disk for development.

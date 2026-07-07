@@ -1,4 +1,4 @@
-# 繪壇耆英 — production container
+# 繪畫耆才 — production container
 FROM node:20-alpine
 
 WORKDIR /app

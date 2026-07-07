@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>繪壇耆英 · 共融數位創作平台</title>
+  <title>繪畫耆才 · 共融數位創作平台</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet" />
@@ -12,7 +12,7 @@
 <body>
   <!-- ============ Navigation: page-turn notepad tabs (§4.3.5) ============ -->
   <nav class="topbar">
-    <div class="logo">繪壇耆英<span class="logo-seal">共融</span></div>
+    <div class="logo">繪畫耆才<span class="logo-seal">共融</span></div>
     <div class="nav-tabs">
       <button class="nav-tab page-single active" data-mode="single">獨畫</button>
       <button class="nav-tab page-multi" data-mode="multi">共繪</button>
@@ -90,30 +90,42 @@
       <div class="board-layout">
         <!-- Stationery tray sidebar (§6.3) -->
         <aside class="stationery-tray">
-          <!-- Tools: compact 2-column grid so everything fits one screen (§6.3) -->
-          <div class="tool-grid">
-            <div class="tool-item" data-tool="pen" title="毛筆">
-              <span class="tool-art brush"></span><span class="tool-label">毛筆</span>
+          <!-- 文房: tools panel — compact 2-column grid so everything fits one screen (§6.3) -->
+          <section class="tray-panel">
+            <h2 class="tray-panel-title">文房</h2>
+            <div class="tool-grid">
+              <div class="tool-item" data-tool="pen" title="毛筆">
+                <span class="tool-art brush"></span><span class="tool-label">毛筆</span>
+              </div>
+              <div class="tool-item" data-tool="zen" title="禪繞筆">
+                <span class="tool-art pen"></span><span class="tool-label">禪繞</span>
+              </div>
+              <div class="tool-item" data-tool="eraser" title="擦膠">
+                <span class="tool-art eraser"></span><span class="tool-label">擦膠</span>
+              </div>
+              <div class="tool-item" data-tool="mirror" title="鏡子">
+                <span class="tool-art mirror"></span><span class="tool-label">鏡子</span>
+              </div>
             </div>
-            <div class="tool-item" data-tool="zen" title="禪繞筆">
-              <span class="tool-art pen"></span><span class="tool-label">禪繞</span>
+            <div class="tray-panel-actions">
+              <div class="tool-item tool-item-mini" data-action="undo" id="tool-undo" title="復原一筆">
+                <span class="tool-art undo"></span><span class="tool-label">復原</span>
+              </div>
+              <div class="tool-item clear-all-item" data-action="clear" title="清空畫布">
+                <span class="tool-label">全清畫布</span>
+              </div>
             </div>
-            <div class="tool-item" data-tool="eraser" title="擦膠">
-              <span class="tool-art eraser"></span><span class="tool-label">擦膠</span>
+            <div class="brush-size-row">
+              <span class="brush-size-label">粗幼</span>
+              <input type="range" id="brush-size" min="4" max="28" step="1" value="10" />
             </div>
-            <div class="tool-item" data-tool="mirror" title="鏡子">
-              <span class="tool-art mirror"></span><span class="tool-label">鏡子</span>
-            </div>
-            <div class="tool-item" data-action="undo" id="tool-undo" title="復原一筆">
-              <span class="tool-art undo"></span><span class="tool-label">復原</span>
-            </div>
-            <div class="tool-item" data-action="clear" title="清空">
-              <span class="tool-art clear"></span><span class="tool-label">清空</span>
-            </div>
-          </div>
+          </section>
 
-          <!-- Seal-pad color selection (§4.3.3) -->
-          <div class="seal-ink-box" id="palette"></div>
+          <!-- 顏色 (原「印泥盒」): seal-pad color selection (§4.3.3) -->
+          <section class="tray-panel tray-panel-ink">
+            <h2 class="tray-panel-title">顏色</h2>
+            <div class="seal-ink-box" id="palette"></div>
+          </section>
 
           <!-- Aid toggles: single column so full labels never clip -->
           <div class="aid-switch-row">
@@ -131,12 +143,8 @@
           </div>
 
           <div class="tray-actions">
-            <button class="big-btn gold" id="btn-finish" hidden>封存作品</button>
-            <div class="tray-actions-grid">
-              <button class="big-btn" id="btn-pickup">提筆</button>
-              <button class="big-btn tactile-btn" id="btn-tactile-export">輸出觸覺圖</button>
-            </div>
-            <button class="back-btn" id="btn-leave-board">← 返回</button>
+            <button class="big-btn finish" id="btn-finish" hidden>封存作品</button>
+            <button class="back-btn" id="btn-leave-board">返回觀賞</button>
           </div>
         </aside>
 
@@ -159,6 +167,11 @@
               <div class="scan-options" id="scan-options"></div>
               <button class="scan-confirm" id="scan-confirm">確認目前選項</button>
             </section>
+            <!-- Floating bottom toolbar over the canvas (提筆已取消：一開板即可直接畫) -->
+            <div class="board-toolbar">
+              <button class="board-toolbar-btn" id="btn-change-lineart">換線稿</button>
+              <button class="board-toolbar-btn save" id="btn-save-image">保存圖片</button>
+            </div>
             <div class="windowsill">
               <!-- Windowsill cat assistant (§4.3.4 / §11) -->
               <div class="cat" id="cat" title="點我用聲控">
@@ -183,18 +196,6 @@
         <div class="scroll-paper"><div class="seal-stamp">封</div></div>
       </div>
 
-      <div class="tactile-output" id="tactile-output" hidden>
-        <div class="tactile-output-card">
-          <button class="tactile-close" id="tactile-close" aria-label="關閉">×</button>
-          <h2>觸覺圖輸出</h2>
-          <img id="tactile-preview" alt="高對比觸覺圖預覽" />
-          <p id="tactile-description"></p>
-          <div class="tactile-actions">
-            <a class="big-btn gold" id="tactile-download-png" download="繪壇耆英-觸覺圖.png">下載 PNG</a>
-            <a class="big-btn" id="tactile-download-svg" download="繪壇耆英-觸覺圖.svg">下載 SVG</a>
-          </div>
-        </div>
-      </div>
     </section>
 
     <!-- ============ Admin: line-art management (§13) ============ -->

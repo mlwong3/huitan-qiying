@@ -1,4 +1,4 @@
-# 繪壇耆英 (Huitan Qiying) — Maintenance Guide
+# 繪畫耆才 (Huihua Qicai) — Maintenance Guide
 
 A real-time inclusive digital creation platform for elderly users and people with
 different abilities. New Chinese Style aesthetic, vanilla frontend, Node/Express
