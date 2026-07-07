@@ -43,6 +43,11 @@
     { key: 'circle', name: '圓形', short: '圓' },
     { key: 'line', name: '線條', short: '線' },
     { key: 'seal', name: '印章', short: '印' },
+    { key: 'cloud', name: '雲朵', short: '雲' },
+    { key: 'blossom', name: '小花', short: '蕾' },
+    { key: 'house', name: '屋仔', short: '屋' },
+    { key: 'person', name: '人仔', short: '人' },
+    { key: 'tree', name: '大樹', short: '樹' },
   ];
 
   const SCAN_COLORS = [
@@ -822,6 +827,46 @@
     },
   };
 
+  // 使用者提供嘅相片式線稿圖示（見 photo/ 原圖）：先裁走浮水印、再用亮度
+  // 二值化轉成透明背景嘅黑線 PNG（scratchpad/process_icons.js），存喺
+  // public/assets/icons/。SVG 內嘅 <image> 引用外部檔案喺「純圖片 context」
+  // （即成個 SVG 本身被當做 <img src>／canvas 圖片用）入面會被瀏覽器擋（安全
+  // 限制，唔准夾帶嘅 SVG 再發額外請求），所以要喺 app 初始化時攞一次 PNG bytes、
+  // 轉做 base64 快取落嚟，之後先夾入去每次生成嘅 SVG（自成一體、唔使再發request）。
+  const RASTER_ICON_PATHS = {
+    cloud: '/assets/icons/cloud.png',
+    blossom: '/assets/icons/blossom.png',
+    house: '/assets/icons/house.png',
+    person: '/assets/icons/person.png',
+    tree: '/assets/icons/tree.png',
+  };
+  const rasterIconCache = {}; // key -> base64 (no "data:" prefix), filled by preloadRasterIcons()
+
+  function preloadRasterIcons() {
+    return Promise.all(Object.keys(RASTER_ICON_PATHS).map((key) =>
+      fetch(RASTER_ICON_PATHS[key])
+        .then((r) => r.blob())
+        .then((blob) => new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            rasterIconCache[key] = String(reader.result).split(',')[1];
+            resolve();
+          };
+          reader.readAsDataURL(blob);
+        }))
+        .catch(() => { /* 離線／載入失敗：揀呢個圖元時會 fallback 做圓形 */ })
+    ));
+  }
+
+  function hexToUnit(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    return {
+      r: ((n >> 16) & 255) / 255,
+      g: ((n >> 8) & 255) / 255,
+      b: (n & 255) / 255,
+    };
+  }
+
   function elementDataUrl(type, color) {
     const safeColor = color || '#000000';
     const svg = elementSvg(type, safeColor);
@@ -829,6 +874,21 @@
   }
 
   function elementSvg(type, color) {
+    if (RASTER_ICON_PATHS[type] && rasterIconCache[type]) {
+      const c = hexToUnit(color);
+      const matrix = [
+        '0 0 0 0 ' + c.r,
+        '0 0 0 0 ' + c.g,
+        '0 0 0 0 ' + c.b,
+        '0 0 0 1 0',
+      ].join('  ');
+      return '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">' +
+        '<defs><filter id="tint" color-interpolation-filters="sRGB">' +
+        '<feColorMatrix type="matrix" values="' + matrix + '"/>' +
+        '</filter></defs>' +
+        '<image href="data:image/png;base64,' + rasterIconCache[type] + '" width="200" height="200" filter="url(#tint)"/>' +
+        '</svg>';
+    }
     const stroke = color === '#000000' ? '#1a1a1a' : shade(color, -25);
     const common = 'fill="' + color + '" stroke="' + stroke + '" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"';
     let body = '';
@@ -1039,6 +1099,7 @@
 
     init() {
       this.currentInputKind = 'touch';
+      preloadRasterIcons();  // 相片式圖示 base64 快取，唔使阻住其餘初始化
       painter.init();
       painter.onMove = (p, down) => this.emitCursor(p, down);
       catLogic.init();
