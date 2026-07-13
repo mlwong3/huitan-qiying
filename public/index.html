@@ -90,6 +90,10 @@
       <div class="board-layout">
         <!-- Stationery tray sidebar (§6.3) -->
         <aside class="stationery-tray">
+          <!-- 文房 + 顏色 scroll together in the middle; 防手震／單鍵創作 toggles and
+               封存作品／返回觀賞 stay pinned below so the primary action and mode
+               switches never disappear even when the colour palette is tall. -->
+          <div class="tray-scroll">
           <!-- 文房: tools panel — compact 2-column grid so everything fits one screen (§6.3) -->
           <section class="tray-panel">
             <h2 class="tray-panel-title">文房</h2>
@@ -126,6 +130,7 @@
             <h2 class="tray-panel-title">顏色</h2>
             <div class="seal-ink-box" id="palette"></div>
           </section>
+          </div><!-- /.tray-scroll -->
 
           <!-- Aid toggles: single column so full labels never clip -->
           <div class="aid-switch-row">

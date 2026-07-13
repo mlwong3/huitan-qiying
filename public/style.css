@@ -485,13 +485,14 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
 .board-layout { display: flex; gap: 22px; align-items: stretch; height: calc(100vh - 120px); }
 
 /* §4.3.2 Stationery tray sidebar.
-   Compact so ALL controls fit a 720px viewport with no page scroll (§6.3).
-   If content ever overflows, the tray itself scrolls (max-height + overflow). */
+   The tray itself no longer scrolls; only the middle .tray-scroll (文房 + 顏色)
+   does, so the 防手震／單鍵創作 toggles and 封存作品／返回觀賞 always stay pinned
+   and visible regardless of how tall the colour palette gets (§6.3). */
 .stationery-tray {
   width: 260px;
   flex: 0 0 260px;
-  max-height: calc(100vh - 92px);   /* topbar 64 + main padding — 內部可捲 */
-  overflow-y: auto;
+  max-height: calc(100vh - 92px);   /* topbar 64 + main padding */
+  overflow: hidden;
   background: #efe8d8;
   border-radius: 16px;
   padding: 12px 10px;
@@ -500,18 +501,31 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
   flex-direction: column;
   gap: 12px;
 }
+/* Scrolling middle: 文房 + 顏色. Flex-grows to fill leftover height and scrolls
+   its own overflow, leaving the pinned toggles/actions below untouched. */
+.tray-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.tray-scroll::-webkit-scrollbar { width: 6px; }
+.tray-scroll::-webkit-scrollbar-thumb { background: rgba(74,55,40,0.3); border-radius: 3px; }
+.aid-switch-row, .tray-actions { flex: 0 0 auto; }
 
 /* 文房／顏色 panel cards (design mockup look) */
 .tray-panel {
   background: #e9e0cb;
   border: 1px solid #ddd2b6;
   border-radius: 14px;
-  padding: 10px 10px 12px;
+  padding: 8px 10px 10px;
 }
 .tray-panel-ink { background: #e6dcc4; border-color: #d8ccae; }
 .tray-panel-title {
-  margin: 0 0 8px;
-  font-size: 20px;
+  margin: 0 0 6px;
+  font-size: 18px;
   font-weight: 700;
   color: #4a2c14;
   letter-spacing: 3px;
@@ -536,14 +550,16 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
   gap: 6px;
 }
 .tool-item {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-  min-height: var(--touch);
-  padding: 6px 4px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: 48px;
+  padding: 4px 4px;
   background: transparent;
   border-radius: 12px;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
+/* Compact tool icons in the 2×2 文房 grid so 文房 + 顏色 both fit on a tablet. */
+.tool-grid .tool-art { width: 28px; height: 28px; flex: 0 0 28px; }
 .tool-item.disabled { opacity: 0.45; }
 .tool-item:hover  { transform: translateY(-4px); box-shadow: 0 6px 14px rgba(90,60,20,0.22); }
 .tool-item.active {
@@ -570,11 +586,11 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
 /* 毛筆／擦膠 粗幼 (brush thickness) slider */
 .brush-size-row {
   display: flex; align-items: center; gap: 8px;
-  margin-top: 8px; padding: 4px 6px;
+  margin-top: 6px; padding: 2px 6px;
 }
 .brush-size-label { flex: 0 0 auto; font-size: 16px; font-weight: 600; color: #4a3320; }
 .brush-size-row input[type="range"] {
-  flex: 1; min-width: 0; height: var(--touch);
+  flex: 1; min-width: 0; height: 40px;
   accent-color: var(--vermillion); cursor: pointer;
 }
 
@@ -622,9 +638,10 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
   align-items: center; justify-content: center; font-size: 26px; color: var(--wood);
 }
 
-/* §4.3.3 顏色 (原「印泥盒」) palette — modestly shrunk to fit one screen, swatches ≥44px */
+/* §4.3.3 顏色 (原「印泥盒」) palette — 12 色環 + 白/黑 + 自選共 15 格，縮到 36px
+   先可以同其餘控制一齊塞入一屏（唔會迫走下面嘅「封存作品」掣）。 */
 .seal-ink-box {
-  display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+  display: flex; flex-wrap: wrap; gap: 7px; justify-content: center;
   padding: 4px 2px;
 }
 .ink-pad {
@@ -632,8 +649,8 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
   position: relative; transition: transform 0.12s ease;
   box-shadow: 0 2px 5px rgba(0,0,0,.25);
 }
-.ink-pad.primary   { width: 46px; height: 46px; }
-.ink-pad.secondary { width: 42px; height: 42px; }
+.ink-pad.primary   { width: 36px; height: 36px; }
+.ink-pad.secondary { width: 34px; height: 34px; }
 .ink-pad.selected  { box-shadow: 0 0 0 3px var(--gold); }
 .ink-pad:active    { transform: scale(0.88); }
 .ink-pad::after {
@@ -643,10 +660,10 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
 .ink-pad.splash::after { animation: ink-splash 0.45s ease-out; }
 @keyframes ink-splash { 0% { transform: scale(0); opacity: 0.6; } 100% { transform: scale(2.5); opacity: 0; } }
 .ink-pad.custom {
-  width: 46px; height: 46px; display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
   border: 2px dashed var(--wood); background: rgba(255,255,255,0.55); overflow: hidden;
 }
-.ink-pad.custom input { width: 54px; height: 54px; border: none; background: none; cursor: pointer; }
+.ink-pad.custom input { width: 44px; height: 44px; border: none; background: none; cursor: pointer; }
 
 /* 防手震 (One Euro Filter) switch — compact, 2-up in .aid-switch-row */
 .aid-switch {
@@ -681,56 +698,59 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
 .aid-switch.on .aid-knob::after { transform: translateX(16px); }
 .aid-switch .aid-label { white-space: nowrap; }
 
-/* Single-switch scanning panel */
+/* Single-switch scanning panel — capped height so it never squeezes the canvas
+   on tablet/desktop; the options scroll inside the panel if they overflow. */
 .scan-panel {
   margin-top: 10px;
-  padding: 14px;
+  padding: 12px;
   border: 4px solid var(--gold);
   border-radius: 8px;
   background: linear-gradient(180deg, #fffaf0, var(--rice-paper));
   box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+  max-height: 46vh;
+  overflow-y: auto;
 }
 .scan-status {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap; margin-bottom: 12px;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 10px;
 }
 .scan-step {
-  font-size: 28px; font-weight: 700; color: var(--vermillion);
+  font-size: 24px; font-weight: 700; color: var(--vermillion);
 }
 .scan-hint {
-  font-size: 18px; color: var(--wood);
+  font-size: 17px; color: var(--wood);
 }
 .scan-options {
   display: grid;
-  grid-template-columns: repeat(5, minmax(110px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(5, minmax(96px, 1fr));
+  gap: 8px;
 }
 .scan-option {
-  min-height: 96px;
+  min-height: 62px;
   border: 3px solid var(--wood);
   border-radius: 8px;
   background: #fff;
   color: var(--ink);
   font-family: var(--font);
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
   cursor: pointer;
   transform: translateY(0);
   transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
 }
 .scan-option.active {
   background: #fff4c8;
-  box-shadow: 0 0 0 6px var(--gold), 0 8px 18px rgba(0,0,0,0.28);
-  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 0 0 5px var(--gold), 0 6px 14px rgba(0,0,0,0.26);
+  transform: translateY(-3px) scale(1.02);
 }
 .scan-visual {
-  flex: 0 0 48px;
-  width: 48px;
-  height: 48px;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
@@ -742,6 +762,15 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
 .scan-visual.color {
   border: 4px solid #fff;
   box-shadow: 0 0 0 2px var(--wood);
+}
+/* Real-icon visual (選圖元 / 選大小): show the actual shape, not a circle+char. */
+.scan-visual.icon {
+  background: none;
+  border: none;
+  border-radius: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 72%;
 }
 .scan-confirm {
   width: 100%;
@@ -781,7 +810,7 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
   to { transform: scale(1.04); opacity: 1; }
 }
 
-/* Action buttons: 封存作品 primary, then 返回觀賞 — both full-width */
+/* Action buttons: 封存作品 primary, then 返回觀賞 — both full-width. */
 .tray-actions { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
 .big-btn.finish {
   background: linear-gradient(180deg, #c0392b, #a3271b);
@@ -1054,6 +1083,8 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
     align-items: stretch; justify-content: flex-start;
     gap: 10px;
   }
+  /* Stacked layout scrolls the whole page — no nested scroll region. */
+  .tray-scroll { flex: none; min-height: auto; overflow: visible; gap: 10px; }
   .tool-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .aid-switch-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .tool-item { flex: none; max-width: none; }
@@ -1061,8 +1092,9 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
   .aid-switch { justify-content: center; }
   .tray-actions { order: 99; margin: 0; width: 100%; }
   .stationery-tray .back-btn { margin-top: 0; }
-  .scan-options { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
-  .scan-option { min-height: 86px; }
+  .scan-options { grid-template-columns: repeat(3, minmax(88px, 1fr)); }
+  .scan-option { min-height: 58px; font-size: 18px; }
+  .scan-panel { max-height: none; overflow-y: visible; } /* stacked layout scrolls the page */
 
   .cat { transform: scale(0.7); }
   .nav-tab { padding: 8px 18px; clip-path: none !important; }
@@ -1106,10 +1138,10 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
   .cat-bubble { max-width: 150px; font-size: 16px; }
   #room-code-input { width: 100%; max-width: 240px; }
   .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
-  .scan-options { grid-template-columns: 1fr; }
+  .scan-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .scan-status { align-items: flex-start; }
-  .scan-step { font-size: 24px; }
-  .scan-hint { font-size: 16px; }
+  .scan-step { font-size: 22px; }
+  .scan-hint { font-size: 15px; }
   .portal-title { font-size: 38px; }
   .portal-copy { font-size: 19px; }
   .portal-kicker, .portal-label { font-size: 16px; }

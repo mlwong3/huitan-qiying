@@ -53,6 +53,19 @@ app.use(express.static(DIRS.public, {
     if (/\.(html|css|js)$/.test(filePath)) res.setHeader('Cache-Control', 'no-cache');
   },
 }));
+// Line-art is always served same-origin (never a raw storage.googleapis.com URL)
+// so it can be composited onto the board <canvas> without tainting it. In bucket
+// mode this streams the object through us; in disk mode it falls through to the
+// static handler below.
+app.get('/linearts/:name', async (req, res, next) => {
+  if (!storage.usingBucket()) return next();
+  try {
+    const handled = await storage.streamLineart(req.params.name, res);
+    if (!handled) next();
+  } catch (e) {
+    if (!res.headersSent) res.status(404).end();
+  }
+});
 app.use('/linearts', express.static(DIRS.linearts, { maxAge: '1d' })); // disk-mode fallback
 
 // Rate limiting (Security §14.2). Generous for general API, stricter for admin.

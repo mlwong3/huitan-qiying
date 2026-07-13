@@ -9,19 +9,24 @@
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
-  // §4.1 Seal-pad palette colors
-  const PRIMARY_COLORS = [
-    { hex: '#b22222', name: '紅色' },
-    { hex: '#000000', name: '黑色' },
-    { hex: '#1e90ff', name: '藍色' },
+  // §4.1 顏色盤 — 12 色相色環（每 30° 一格）＋白＋黑，另有自選顏色（見 buildPalette）
+  const WHEEL_COLORS = [
+    { hex: '#d84c4c', name: '紅' },
+    { hex: '#e0883c', name: '橙' },
+    { hex: '#e8c24a', name: '黃' },
+    { hex: '#a7d24b', name: '黃綠' },
+    { hex: '#5cbb5c', name: '綠' },
+    { hex: '#45c08a', name: '青綠' },
+    { hex: '#46bcc6', name: '青' },
+    { hex: '#4a9ad8', name: '天藍' },
+    { hex: '#4f6ccf', name: '藍' },
+    { hex: '#7d5ecf', name: '靛' },
+    { hex: '#b552cf', name: '紫' },
+    { hex: '#d5548f', name: '桃紅' },
   ];
-  const SECONDARY_COLORS = [
-    { hex: '#228b22', name: '綠色' },
-    { hex: '#c9a227', name: '金色' },
-    { hex: '#b83e2f', name: '朱砂' },
-    { hex: '#6b4423', name: '檀木' },
-    { hex: '#5a7d6c', name: '竹青' },
+  const NEUTRAL_COLORS = [
     { hex: '#ffffff', name: '白色' },
+    { hex: '#000000', name: '黑色' },
   ];
 
   const ZEN_PATTERNS = ['dot', 'grid', 'line', 'circle'];
@@ -58,9 +63,18 @@
     { key: 'gold', name: '金色', hex: '#c9a227', tone: 1046 },
   ];
 
+  // 圖示大小（單鍵創作第三步）。scale 乘上圖示基本寬度（線條 24%、其餘 18%）。
+  const SCAN_SIZES = [
+    { key: 'small', name: '細', scale: 0.6 },
+    { key: 'medium', name: '中', scale: 1 },
+    { key: 'large', name: '大', scale: 1.7 },
+  ];
+
   const JOYSTICK_STEP = 6;
   const JOYSTICK_FINE_STEP = 2;
   const DEFAULT_SCAN_POSITION = { key: 'free', x: 50, y: 50, name: '畫面中央' };
+  // 「選圖元」步驟未揀顏色時，圖示用呢個中性墨色顯示形狀。
+  const ELEMENT_PREVIEW_HEX = '#4a3728';
 
   // ====================================================================== //
   //  Painter (§9)
@@ -305,8 +319,8 @@
         });
         return pad;
       };
-      PRIMARY_COLORS.forEach((c) => box.appendChild(make(c, 'primary')));
-      SECONDARY_COLORS.forEach((c) => box.appendChild(make(c, 'secondary')));
+      WHEEL_COLORS.forEach((c) => box.appendChild(make(c, 'primary')));
+      NEUTRAL_COLORS.forEach((c) => box.appendChild(make(c, 'primary')));
       // custom color picker
       const custom = document.createElement('label');
       custom.className = 'ink-pad custom';
@@ -552,10 +566,11 @@
     timer: null,
     selections: {},
     placement: { x: 50, y: 50 },
-    steps: ['element', 'color', 'position'],
+    steps: ['element', 'color', 'size', 'position'],
     stepNames: {
       element: '選圖元',
       color: '選顏色',
+      size: '選大小',
       position: '選位置',
     },
 
@@ -579,7 +594,7 @@
       this.syncButton();
       this.render();
       this.restartTimer();
-      feedbackLayer.say('單鍵創作開始。先掃描選圖元和顏色，再用方向鍵控制位置，按空白鍵或 Enter 確認。');
+      feedbackLayer.say('單鍵創作開始。順序掃描：揀圖元、揀顏色、揀大小，再用方向鍵控制位置，按空白鍵或 Enter 確認。');
     },
 
     stop(announce = true) {
@@ -644,6 +659,7 @@
       const step = this.currentStep();
       if (step === 'element') return SCAN_ELEMENTS;
       if (step === 'color') return SCAN_COLORS;
+      if (step === 'size') return SCAN_SIZES;
       return []; // position: 冇卡片選項，靠方向鍵／點擊畫面直接落位（見 movePlacement/confirmCurrent）
     },
 
@@ -685,17 +701,30 @@
       });
     },
 
-    // 只有 'element'／'color' 兩步先會行到呢度（'position' 喺 render() 已經 return）。
+    // 'element'／'color'／'size' 三步會行到呢度（'position' 喺 render() 已經 return）。
     optionVisual(step, opt) {
       const visual = document.createElement('span');
       visual.className = 'scan-visual';
       if (step === 'color') {
         visual.classList.add('color');
         visual.style.background = opt.hex;
-      } else {
-        visual.classList.add('element');
-        visual.textContent = opt.short;
+        return visual;
       }
+      if (step === 'element') {
+        // 顯示真正圖示形狀（唔再用圓圈加字），令使用者一睇就知係咩形狀。
+        visual.classList.add('icon');
+        visual.style.backgroundImage = 'url("' + elementDataUrl(opt.key, ELEMENT_PREVIEW_HEX) + '")';
+        return visual;
+      }
+      // size：用已揀好嘅圖示＋顏色，喺同一個框內以唔同比例展示細／中／大。
+      visual.classList.add('icon');
+      const el = this.selections.element;
+      const color = this.selections.color;
+      if (el) {
+        visual.style.backgroundImage =
+          'url("' + elementDataUrl(el.key, color ? color.hex : ELEMENT_PREVIEW_HEX) + '")';
+      }
+      visual.style.backgroundSize = ({ small: '46%', medium: '72%', large: '100%' })[opt.key] || '72%';
       return visual;
     },
 
@@ -713,6 +742,11 @@
         this.selections.color = option;
         feedbackLayer.tone(option.key);
         feedbackLayer.say('你選擇了' + option.name);
+        return this.advance();
+      }
+      if (step === 'size') {
+        this.selections.size = option;
+        feedbackLayer.say('大小：' + option.name);
         return this.advance();
       }
       if (step === 'position') {
@@ -763,6 +797,10 @@
       this.preview.hidden = false;
       this.preview.style.left = this.placement.x + '%';
       this.preview.style.top = this.placement.y + '%';
+      // 預覽尺寸跟返揀好嘅大小，令「所見即所得」（同 placeScanElement 嘅計法一致）。
+      const baseWidth = this.selections.element.key === 'line' ? 24 : 18;
+      const scale = (this.selections.size && this.selections.size.scale) || 1;
+      this.preview.style.width = (baseWidth * scale) + '%';
       this.preview.style.backgroundImage = 'url("' + elementDataUrl(this.selections.element.key, this.selections.color.hex) + '")';
       this.preview.setAttribute('aria-label', this.currentPosition().name);
     },
@@ -1169,8 +1207,16 @@
       board.clearAll();
       painter.ctx.clearRect(0, 0, painter.canvas.width, painter.canvas.height);
       const bg = $('#board-bg');
-      if (bgImage) { bg.src = bgImage; bg.hidden = false; }
-      else { bg.hidden = true; }
+      if (bgImage) {
+        // Line-art is served same-origin (see storage.js), but request it as an
+        // anonymous CORS image anyway so the canvas never taints even if a future
+        // source is cross-origin — keeps 封存作品 / 保存圖片 working with 畫紙.
+        bg.crossOrigin = 'anonymous';
+        bg.src = bgImage;
+        bg.hidden = false;
+      } else {
+        bg.hidden = true;
+      }
       painter.openCanvas();  // 提筆步驟已取消：一開板即可直接畫
       $('#room-banner').hidden = !board.isMulti();
       this.showScreen('#screen-board');
@@ -1190,12 +1236,14 @@
       const position = selection.position;
       if (!element || !color || !position) return;
 
+      const baseWidth = element.key === 'line' ? 24 : 18;
+      const scale = (selection.size && selection.size.scale) || 1;
       const el = {
         id: Date.now() + Math.floor(Math.random() * 1000),
         img: elementDataUrl(element.key, color.hex),
         x: position.x,
         y: position.y,
-        width: element.key === 'line' ? 24 : 18,
+        width: Math.round(baseWidth * scale),
         date: chineseDate(),
         elementType: element.key,
         elementName: element.name,
