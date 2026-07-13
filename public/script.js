@@ -63,12 +63,11 @@
     { key: 'gold', name: '金色', hex: '#c9a227', tone: 1046 },
   ];
 
-  // 圖示大小（單鍵創作第三步）。scale 乘上圖示基本寬度（線條 24%、其餘 18%）。
-  const SCAN_SIZES = [
-    { key: 'small', name: '細', scale: 0.6 },
-    { key: 'medium', name: '中', scale: 1 },
-    { key: 'large', name: '大', scale: 1.7 },
-  ];
+  // 圖示大小（單鍵創作第三步）：以畫布百分比表示，用搖桿／方向鍵嘅上（放大）
+  // 下（縮細）即時調校，Enter／空白鍵確認。
+  const SCAN_SIZE_DEFAULT = 18;  // 圖示寬度預設 18%（畫布百分比）
+  const SCAN_SIZE_MIN = 6;
+  const SCAN_SIZE_MAX = 60;
 
   const JOYSTICK_STEP = 6;
   const JOYSTICK_FINE_STEP = 2;
@@ -566,6 +565,7 @@
     timer: null,
     selections: {},
     placement: { x: 50, y: 50 },
+    sizePercent: SCAN_SIZE_DEFAULT,
     steps: ['element', 'color', 'size', 'position'],
     stepNames: {
       element: '選圖元',
@@ -589,12 +589,13 @@
       this.optionIndex = 0;
       this.selections = {};
       this.placement = { x: DEFAULT_SCAN_POSITION.x, y: DEFAULT_SCAN_POSITION.y };
+      this.sizePercent = SCAN_SIZE_DEFAULT;
       this.panel.hidden = false;
       document.body.classList.add('scan-active');
       this.syncButton();
       this.render();
       this.restartTimer();
-      feedbackLayer.say('單鍵創作開始。順序掃描：揀圖元、揀顏色、揀大小，再用方向鍵控制位置，按空白鍵或 Enter 確認。');
+      feedbackLayer.say('單鍵創作開始。掃描揀圖元同顏色，再用上下（搖桿或方向鍵）調大小、用方向鍵控制位置，按空白鍵或 Enter 確認。');
     },
 
     stop(announce = true) {
@@ -621,7 +622,8 @@
 
     restartTimer() {
       clearInterval(this.timer);
-      if (this.currentStep() === 'position') {
+      // 'size' 同 'position' 都係手動連續調校（搖桿上下／方向鍵），唔自動輪播。
+      if (this.currentStep() === 'position' || this.currentStep() === 'size') {
         this.timer = null;
         return;
       }
@@ -638,7 +640,11 @@
     handleIntent(intent) {
       if (intent.type === 'back') return this.back();
       if (intent.type === 'next') return this.next();
-      if (intent.type === 'move') return this.movePlacement(intent.dx, intent.dy);
+      if (intent.type === 'move') {
+        // 'size' 步驟：上（dy<0）放大、下（dy>0）縮細；其餘（position）郁動位置。
+        if (this.currentStep() === 'size') return this.adjustSize(-(Number(intent.dy) || 0));
+        return this.movePlacement(intent.dx, intent.dy);
+      }
       if (intent.type === 'confirm') return this.confirmCurrent();
     },
 
@@ -659,19 +665,30 @@
       const step = this.currentStep();
       if (step === 'element') return SCAN_ELEMENTS;
       if (step === 'color') return SCAN_COLORS;
-      if (step === 'size') return SCAN_SIZES;
-      return []; // position: 冇卡片選項，靠方向鍵／點擊畫面直接落位（見 movePlacement/confirmCurrent）
+      // size / position: 冇卡片選項，靠搖桿／方向鍵連續調校（見 adjustSize / movePlacement）
+      return [];
     },
 
     render() {
       const step = this.currentStep();
       const options = this.optionsForStep();
       this.stepLabel.textContent = this.stepNames[step];
-      this.hint.textContent = step === 'position'
-        ? '用方向鍵移動圖示，Enter／空白鍵確認位置'
+      this.hint.textContent =
+        step === 'position' ? '用方向鍵移動圖示，Enter／空白鍵確認位置'
+        : step === 'size' ? '用上／下（搖桿或方向鍵）調校大小，Enter／空白鍵確認'
         : '按空白鍵、Enter 或點擊畫面確認';
       this.optionsBox.innerHTML = '';
       this.optionsBox.className = 'scan-options scan-step-' + step;
+
+      if (step === 'size') {
+        // 冇卡片——顯示目前大小百分比 + 置中預覽，靠搖桿／方向鍵上下調校。
+        const readout = document.createElement('p');
+        readout.className = 'scan-size-readout';
+        readout.textContent = '目前大小：' + Math.round(this.sizePercent) + '%';
+        this.optionsBox.appendChild(readout);
+        this.showPlacementPreview();
+        return;
+      }
 
       if (step === 'position') {
         // 冇按鈕、冇座標文字——淨係靠方向鍵／點擊畫面郁動同確認（見上面 hint），
@@ -701,7 +718,7 @@
       });
     },
 
-    // 'element'／'color'／'size' 三步會行到呢度（'position' 喺 render() 已經 return）。
+    // 只有 'element'／'color' 兩步會行到呢度（size/position 喺 render() 已經 return）。
     optionVisual(step, opt) {
       const visual = document.createElement('span');
       visual.className = 'scan-visual';
@@ -710,28 +727,17 @@
         visual.style.background = opt.hex;
         return visual;
       }
-      if (step === 'element') {
-        // 顯示真正圖示形狀（唔再用圓圈加字），令使用者一睇就知係咩形狀。
-        visual.classList.add('icon');
-        visual.style.backgroundImage = 'url("' + elementDataUrl(opt.key, ELEMENT_PREVIEW_HEX) + '")';
-        return visual;
-      }
-      // size：用已揀好嘅圖示＋顏色，喺同一個框內以唔同比例展示細／中／大。
+      // element：顯示真正圖示形狀（唔再用圓圈加字），令使用者一睇就知係咩形狀。
       visual.classList.add('icon');
-      const el = this.selections.element;
-      const color = this.selections.color;
-      if (el) {
-        visual.style.backgroundImage =
-          'url("' + elementDataUrl(el.key, color ? color.hex : ELEMENT_PREVIEW_HEX) + '")';
-      }
-      visual.style.backgroundSize = ({ small: '46%', medium: '72%', large: '100%' })[opt.key] || '72%';
+      visual.style.backgroundImage = 'url("' + elementDataUrl(opt.key, ELEMENT_PREVIEW_HEX) + '")';
       return visual;
     },
 
     confirmCurrent() {
       const step = this.currentStep();
       const option = this.optionsForStep()[this.optionIndex];
-      if (!option && step !== 'position') return;
+      // 'size'／'position' 冇卡片選項，唔需要 option 都可以確認。
+      if (!option && step !== 'position' && step !== 'size') return;
 
       if (step === 'element') {
         this.selections.element = option;
@@ -745,8 +751,8 @@
         return this.advance();
       }
       if (step === 'size') {
-        this.selections.size = option;
-        feedbackLayer.say('大小：' + option.name);
+        this.selections.sizePercent = Math.round(this.sizePercent);
+        feedbackLayer.say('大小 ' + Math.round(this.sizePercent) + '%');
         return this.advance();
       }
       if (step === 'position') {
@@ -768,6 +774,14 @@
       this.optionIndex = 0;
       this.render();
       this.restartTimer();
+    },
+
+    // 搖桿／方向鍵上下調校圖示大小（畫布百分比）。delta > 0 放大、< 0 縮細。
+    adjustSize(delta) {
+      if (this.currentStep() !== 'size') return;
+      this.sizePercent = Math.max(SCAN_SIZE_MIN, Math.min(SCAN_SIZE_MAX, this.sizePercent + (Number(delta) || 0)));
+      this.render();
+      feedbackLayer.say('大小 ' + Math.round(this.sizePercent) + '%', false);
     },
 
     movePlacement(dx, dy) {
@@ -797,10 +811,8 @@
       this.preview.hidden = false;
       this.preview.style.left = this.placement.x + '%';
       this.preview.style.top = this.placement.y + '%';
-      // 預覽尺寸跟返揀好嘅大小，令「所見即所得」（同 placeScanElement 嘅計法一致）。
-      const baseWidth = this.selections.element.key === 'line' ? 24 : 18;
-      const scale = (this.selections.size && this.selections.size.scale) || 1;
-      this.preview.style.width = (baseWidth * scale) + '%';
+      // 預覽尺寸跟返目前調校嘅百分比，令「所見即所得」（同 placeScanElement 一致）。
+      this.preview.style.width = this.sizePercent + '%';
       this.preview.style.backgroundImage = 'url("' + elementDataUrl(this.selections.element.key, this.selections.color.hex) + '")';
       this.preview.setAttribute('aria-label', this.currentPosition().name);
     },
@@ -1236,14 +1248,14 @@
       const position = selection.position;
       if (!element || !color || !position) return;
 
-      const baseWidth = element.key === 'line' ? 24 : 18;
-      const scale = (selection.size && selection.size.scale) || 1;
+      // 大小由使用者用搖桿／方向鍵上下調校（畫布百分比），見 scanController.adjustSize。
+      const width = Math.round(selection.sizePercent || SCAN_SIZE_DEFAULT);
       const el = {
         id: Date.now() + Math.floor(Math.random() * 1000),
         img: elementDataUrl(element.key, color.hex),
         x: position.x,
         y: position.y,
-        width: Math.round(baseWidth * scale),
+        width: width,
         date: chineseDate(),
         elementType: element.key,
         elementName: element.name,
