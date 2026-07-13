@@ -1389,20 +1389,43 @@
         grid.appendChild(p);
         return;
       }
-      works.forEach((w) => {
+      works.forEach((w, idx) => {
         const card = document.createElement('div');
         card.className = 'gallery-card';
         card.title = '撳一下攞返上畫板繼續畫';
-        card.addEventListener('click', () => this.openBoard(w.img));
+
+        const clickableArea = document.createElement('div');
+        clickableArea.style.flex = '1';
+        clickableArea.addEventListener('click', () => this.openBoard(w.img));
+
         const img = document.createElement('img');
         img.src = w.img;
         const date = document.createElement('div');
         date.className = 'card-date';
         date.textContent = w.date;
-        card.appendChild(img);
-        card.appendChild(date);
+        clickableArea.appendChild(img);
+        clickableArea.appendChild(date);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'card-delete-btn';
+        deleteBtn.title = '刪除呢件作品';
+        deleteBtn.innerHTML = '×';
+        deleteBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.deleteWork(idx);
+        });
+
+        card.appendChild(clickableArea);
+        card.appendChild(deleteBtn);
         grid.appendChild(card);
       });
+    },
+
+    deleteWork(index) {
+      const works = JSON.parse(localStorage.getItem('myWorks') || '[]');
+      works.splice(index, 1);
+      localStorage.setItem('myWorks', JSON.stringify(works));
+      this.renderMyWorks();
     },
 
     // ----- §12.x localStorage room history (quickly return to / cancel) --
