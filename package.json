@@ -1,6 +1,6 @@
 {
   "name": "huihua-qicai",
-  "version": "3.10.1",
+  "version": "3.10.3",
   "description": "繪畫耆才 — An inclusive real-time creative & wellbeing platform for older adults and people with different abilities (New Chinese Style).",
   "main": "server.js",
   "scripts": {
