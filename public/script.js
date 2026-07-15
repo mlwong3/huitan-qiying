@@ -30,6 +30,7 @@
   ];
 
   const ZEN_PATTERNS = ['dot', 'grid', 'line', 'circle'];
+  const ZEN_SPACING = 26;  // 禪繞圖案沿筆劃的間距（px）；太小會擠成一條實線
 
   // §共融: input-modality labels + stable per-peer colour
   const INPUT_LABELS = { touch: '觸控', scan: '單鍵' };
@@ -86,6 +87,8 @@
     tool: 'pen',           // 'pen' | 'zen' | 'eraser'
     mirrorMode: false,
     zenPatternIndex: 0,    // 0:dot 1:grid 2:line 3:circle
+    zenAcc: 0,             // 禪繞：沿筆劃累積的距離餘數，令圖案跨線段等距分佈
+    strokePts: null,       // 共繪：當前一筆的座標點，放筆時整筆同步給房友
     isDrawing: false,
     lastPos: { x: 0, y: 0 },
     editing: false,
@@ -183,13 +186,19 @@
         // 每一筆開始前先拍低快照，供「復原」回退
         this.pushHistory();
         if (this.filterEnabled && this.pf) this.pf.reset();
+        this.zenAcc = 0;                 // 新一筆的禪繞間距由頭累積
         this.lastPos = this.smooth(signal.x, signal.y);
+        this.strokePts = [this.lastPos]; // 共繪：記錄整筆座標，放筆時一次過同步
         if (this.onMove) this.onMove(this.lastPos, true);
         return;
       }
       if (signal.action === 'up') {
-        if (this.isDrawing) this.endStroke();
+        if (this.isDrawing) {
+          this.endStroke();
+          this.emitStroke();             // 共繪：把整筆送給房友（獨畫模式會自動略過）
+        }
         this.isDrawing = false;
+        this.strokePts = null;
         if (this.onMove) this.onMove(this.lastPos, false);
         return;
       }
@@ -200,6 +209,7 @@
       if (this.mirrorMode) {
         this.line(this.mirror(this.lastPos), this.mirror(p));
       }
+      if (this.strokePts) this.strokePts.push(p);
       this.lastPos = p;
       if (this.onMove) this.onMove(p, true);
     },
@@ -242,29 +252,90 @@
       }
     },
 
+    // 禪繞筆：沿筆劃每隔 ZEN_SPACING 蓋一個圖案。用 this.zenAcc 記住上一段用剩
+    // 的距離，令圖案跨線段等距分佈；過往每段都由起點 (i=0) 重畫，圖案互相重疊
+    // 到好像一條實線——現以累積距離解決。
     drawZen(from, to) {
       const ctx = this.ctx;
       const pattern = ZEN_PATTERNS[this.zenPatternIndex];
       ctx.fillStyle = this.color;
       ctx.strokeStyle = this.color;
-      const steps = Math.max(1, Math.hypot(to.x - from.x, to.y - from.y) / 14);
-      for (let i = 0; i <= steps; i++) {
-        const x = from.x + (to.x - from.x) * (i / steps);
-        const y = from.y + (to.y - from.y) * (i / steps);
-        ctx.beginPath();
-        if (pattern === 'dot') {
-          ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
-        } else if (pattern === 'grid') {
-          ctx.lineWidth = 2;
-          ctx.strokeRect(x - 5, y - 5, 10, 10);
-        } else if (pattern === 'line') {
-          ctx.lineWidth = 3;
-          ctx.moveTo(x, y - 6); ctx.lineTo(x, y + 6); ctx.stroke();
-        } else { // circle
-          ctx.lineWidth = 2;
-          ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.stroke();
+      const segLen = Math.hypot(to.x - from.x, to.y - from.y);
+      if (segLen === 0) {
+        if (this.zenAcc <= 0) { this.stampZen(from.x, from.y, pattern); this.zenAcc = ZEN_SPACING; }
+        return;
+      }
+      const ux = (to.x - from.x) / segLen;
+      const uy = (to.y - from.y) / segLen;
+      let d = this.zenAcc;               // 由上一段帶過來的偏移開始（第一段為 0）
+      for (; d <= segLen; d += ZEN_SPACING) {
+        this.stampZen(from.x + ux * d, from.y + uy * d, pattern);
+      }
+      this.zenAcc = d - segLen;          // 剩餘距離帶到下一段
+    },
+
+    stampZen(x, y, pattern) {
+      const ctx = this.ctx;
+      ctx.beginPath();
+      if (pattern === 'dot') {
+        ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+      } else if (pattern === 'grid') {
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x - 5, y - 5, 10, 10);
+      } else if (pattern === 'line') {
+        ctx.lineWidth = 3;
+        ctx.moveTo(x, y - 6); ctx.lineTo(x, y + 6); ctx.stroke();
+      } else { // circle
+        ctx.lineWidth = 2;
+        ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.stroke();
+      }
+    },
+
+    // 共繪：放筆時把整筆座標送去房間；房友與日後重返者都能重繪出這一筆。
+    emitStroke() {
+      if (!board.isMulti() || !socket) return;
+      if (!this.strokePts || this.strokePts.length < 1) return;
+      socket.emit('stroke', {
+        roomId: board.roomId,
+        tool: this.tool,
+        color: this.color,
+        width: this.lineWidth,
+        pattern: this.tool === 'zen' ? ZEN_PATTERNS[this.zenPatternIndex] : null,
+        mirror: this.mirrorMode,
+        points: this.strokePts.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) })),
+      });
+    },
+
+    // 共繪：重繪房友（或重返房間時歷史紀錄）傳來的一整筆。臨時套用該筆的工具／
+    // 顏色／粗幼／禪繞圖案，畫完還原本地狀態，_replaying 令其不會再次外送。
+    drawStroke(s) {
+      if (!s || !Array.isArray(s.points) || !s.points.length) return;
+      const saved = {
+        tool: this.tool, color: this.color, width: this.lineWidth,
+        zen: this.zenPatternIndex, acc: this.zenAcc,
+      };
+      this.tool = s.tool || 'pen';
+      this.color = s.color || '#000000';
+      this.lineWidth = s.width || 10;
+      if (s.pattern) {
+        const idx = ZEN_PATTERNS.indexOf(s.pattern);
+        if (idx >= 0) this.zenPatternIndex = idx;
+      }
+      this.zenAcc = 0;
+      this._replaying = true;
+      const pts = s.points;
+      if (pts.length === 1) {
+        this.line(pts[0], pts[0]);
+        if (s.mirror) this.line(this.mirror(pts[0]), this.mirror(pts[0]));
+      } else {
+        for (let i = 1; i < pts.length; i++) {
+          this.line(pts[i - 1], pts[i]);
+          if (s.mirror) this.line(this.mirror(pts[i - 1]), this.mirror(pts[i]));
         }
       }
+      this._replaying = false;
+      this.tool = saved.tool; this.color = saved.color; this.lineWidth = saved.width;
+      this.zenPatternIndex = saved.zen; this.zenAcc = saved.acc;
     },
 
     endStroke() {
@@ -1330,17 +1401,14 @@
       await this.drawBoardSnapshot(ctx, w, h);
       const dataURL = out.toDataURL('image/png');
       this.playSealCeremony(() => {
-        const el = {
-          id: Date.now(),
-          img: dataURL,
-          x: 50, y: 50, width: 40,
-          date: chineseDate(),
-        };
         if (board.isMulti()) {
+          // 共繪：把完成的整張作品交到房間，讓房友都見到。
           socket.emit('add_element', { roomId: board.roomId, image: dataURL });
         } else {
-          board.addElement(el);
-          this.saveWork(dataURL, el.date);
+          // 獨畫：只存入「我的作品」畫廊即可。過往這裡還會把整張快照當一個
+          // 縮圖 element 貼回畫板中央，令下一次封存的快照重複包含縮圖，重返
+          // 作品時就出現「兩個一樣的圖案」——已移除，封存後畫布保持乾淨。
+          this.saveWork(dataURL, chineseDate());
         }
         painter.ctx.clearRect(0, 0, painter.canvas.width, painter.canvas.height);
         painter.openCanvas();  // 提筆步驟已取消：封存後即刻可以再畫下一幅
@@ -1651,11 +1719,14 @@
         catLogic.say('開房成功，號碼係 ' + roomId.split('').join(' '));
       });
 
-      socket.on('init_room', ({ id, bgImage, elements }) => {
+      socket.on('init_room', ({ id, bgImage, elements, strokes }) => {
         board.roomId = id;
         $('#room-id-label').textContent = id;
         this.openBoard(bgImage);
-        elements.forEach((el) => board.addElement(el));
+        // 先重繪房間已有的自由筆觸（毛筆／禪繞／擦膠），再放置圖元／作品，
+        // 令重返房間時見返之前大家畫過的內容，而唔係得返空白畫布。
+        (strokes || []).forEach((s) => painter.drawStroke(s));
+        (elements || []).forEach((el) => board.addElement(el));
         this._pendingJoinRoomId = null;
         this.rememberRoom(id);
         catLogic.say('加入咗房間 ' + id);
@@ -1678,6 +1749,8 @@
       socket.on('element_moved', ({ id, x, y }) => board.moveNode(id, x, y));
       socket.on('element_resized', ({ id, width }) => board.resizeNode(id, width));
       socket.on('element_deleted', (id) => board.removeNode(id));
+      // 房友畫低咗一整筆：即時重繪出嚟
+      socket.on('peer_stroke', (s) => painter.drawStroke(s));
       socket.on('peer_cursor', (d) => this.onPeerCursor(d));
       socket.on('peer_left', (id) => this.removePeer(id));
       // 找不到房間（例如舊房間已在伺服器重啟後消失）：連帶清走本機紀錄

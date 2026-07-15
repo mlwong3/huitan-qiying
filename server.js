@@ -138,7 +138,7 @@ io.on('connection', (socket) => {
   // create_room { bgImage }
   socket.on('create_room', ({ bgImage } = {}) => {
     const roomId = makeRoomId();
-    rooms[roomId] = { id: roomId, bgImage: bgImage || null, elements: [] };
+    rooms[roomId] = { id: roomId, bgImage: bgImage || null, elements: [], strokes: [] };
     socket.join(roomId);
     socket.data.roomId = roomId;
     socket.emit('room_created', { roomId, bgImage: rooms[roomId].bgImage });
@@ -153,7 +153,12 @@ io.on('connection', (socket) => {
     }
     socket.join(roomId);
     socket.data.roomId = roomId;
-    socket.emit('init_room', { id: room.id, bgImage: room.bgImage, elements: room.elements });
+    socket.emit('init_room', {
+      id: room.id,
+      bgImage: room.bgImage,
+      elements: room.elements,
+      strokes: room.strokes || [],
+    });
   });
 
   // close_room { roomId } — cancel a room (from the board or the 我的共繪 history
@@ -163,6 +168,28 @@ io.on('connection', (socket) => {
     if (!roomId || !rooms[roomId]) return;
     io.to(roomId).emit('room_closed', { roomId });
     delete rooms[roomId];
+  });
+
+  // stroke { roomId, tool, color, width, pattern, mirror, points:[{x,y}] }
+  // 自由筆觸（毛筆／禪繞／擦膠）放筆時整筆送上，存入房間並轉播畀其他房友，
+  // 令重返房間或後來加入者都可以重繪出之前畫過的線條。
+  socket.on('stroke', ({ roomId, tool, color, width, pattern, mirror, points } = {}) => {
+    const room = rooms[roomId];
+    if (!room || !Array.isArray(points) || points.length < 1) return;
+    const stroke = {
+      tool: safeText(tool, 10) || 'pen',
+      color: safeHex(color),
+      width: Math.min(60, Math.max(1, Number(width) || 10)),
+      pattern: pattern ? safeText(pattern, 10) : null,
+      mirror: !!mirror,
+      points: points.slice(0, 2000).map((p) => ({
+        x: Math.round(Number(p.x) || 0),
+        y: Math.round(Number(p.y) || 0),
+      })),
+    };
+    room.strokes = room.strokes || [];
+    if (room.strokes.length < 5000) room.strokes.push(stroke);
+    socket.to(roomId).emit('peer_stroke', stroke);
   });
 
   // add_element { roomId, image: dataURL } or { roomId, element }
