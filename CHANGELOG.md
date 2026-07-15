@@ -5,6 +5,37 @@
 
 ---
 
+## [3.11.0] — 2026-07-16 · 共繪模式重構：新增／放入貢獻式共繪 + 半透明描圖線稿
+
+### Changed
+- **共繪創作方式全面重構**（取代舊嘅「大家喺同一張主畫布直接一齊畫」）：
+  - 進入房間先見到共繪主畫布，底部得「＋ 新增」同「退出」兩個掣。
+  - 撳「新增」入到個人空白畫布，用文房工具繪畫，畫好撳「放入」。
+  - 「放入」會將線條**去底、裁剪到筆跡範圍**，變成一個透明圖案放上主畫布；
+    圖案可以揀住拖、縮放、長按刪除。
+  - 撳「退出」離開房間；喺個人畫布撳「返回」則唔放入直接返房間。
+- **半透明描圖線稿**：個人畫布可揀一張線稿（或「空白」），以半透明鋪底俾長者照住描；
+  線稿本身唔會計入放入嘅圖案。
+
+### Fixed
+- **共繪重返內容消失**（延續 3.10.3 問題）：改用「圖元」貢獻後，內容存入 `room.elements`、
+  由 `init_room` 重播，重返或房友加入都會見返，唔再依賴即時筆觸同步。
+
+### Technical
+- `#screen-board` 用子模式 class：`mode-multi-room`（房間視圖）／`mode-multi-draw`（繪畫視圖），
+  重用同一個 `elements-layer` 同 painter，唔使搬 DOM。
+- 新增 `app.enterRoomView` / `enterDrawView` / `placeContribution`（bounding-box 裁剪 + 透明匯出）／
+  `exitRoom` / `backToRoom` / `buildTemplatePicker` / `applyTemplate`；`#draw-template` 半透明鋪底。
+- `painter.contributeMode` 令個人繪畫階段唔逐筆同步（`emitStroke` 直接略過）；主畫布唔再直接手繪。
+- 共繪進房改行 `enterRoomView`（房間視圖），唔再一入就開繪畫板。
+- 本機端對端驗證：房間/繪畫視圖切換、放入裁剪去底、退出重返持久化、返回無殘留、描圖線稿半透明、
+  獨畫無回歸，全部通過，零 console error。
+
+### 檔案
+- `public/index.html`、`public/script.js`、`public/style.css`
+
+---
+
 ## [3.10.3] — 2026-07-16 · 修復共繪重返筆觸、禪繞間距、封存重複圖案
 
 ### Fixed

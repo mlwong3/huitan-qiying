@@ -1182,3 +1182,73 @@ main { padding: 28px; max-width: 1280px; margin: 0 auto; }
   .portal-copy { font-size: 19px; }
   .portal-kicker, .portal-label { font-size: 16px; }
 }
+
+/* ==================================================================== */
+/*  共繪新流程（§12 重構）：房間視圖 / 個人繪畫視圖                        */
+/* ==================================================================== */
+
+/* 描圖線稿：半透明鋪喺個人畫布底，俾長者照住描（唔會計入放入嘅圖案）*/
+#draw-template {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: contain;
+  opacity: 0.28;
+  pointer-events: none;
+}
+
+/* 底部操作列同描圖線稿列，預設收埋；喺共繪兩個視圖先出現 */
+.multi-actionbar { display: none; }
+.template-picker { display: none; }
+#btn-add-contribution, #btn-exit-room, #btn-place, #btn-back-to-room { display: none; }
+
+/* 共繪視圖：喺桌面縮短畫板高度，令底部操作列同線稿列喺下面有位顯示、
+   唔會被推出畫面。#screen-board 保持 block（唔改 flex，避免闊度塌），底部
+   兩個 bar 喺正常流下面。手機版 board-layout 本身係 auto 高度可捲動，唔使處理。*/
+@media (min-width: 861px) {
+  #screen-board.mode-multi-room .board-layout { height: calc(100vh - 210px); }
+  #screen-board.mode-multi-draw .board-layout { height: calc(100vh - 300px); }
+}
+
+/* 房間視圖：淨係睇大家放入嘅圖案，收埋工具、換線稿/保存、封存等 */
+#screen-board.mode-multi-room .stationery-tray,
+#screen-board.mode-multi-room .board-toolbar,
+#screen-board.mode-multi-draw .board-toolbar,
+#screen-board.mode-multi-room .tray-actions,
+#screen-board.mode-multi-draw .tray-actions { display: none; }
+#screen-board.mode-multi-room .board-container { flex: 1 1 auto; }
+
+/* 繪畫視圖：收埋房間圖案層（淨係畫個人畫布），顯示描圖線稿列 */
+#screen-board.mode-multi-draw #elements-layer { display: none; }
+#screen-board.mode-multi-draw .template-picker { display: flex; }
+
+/* 底部操作列：置中兩個大掣 */
+#screen-board.mode-multi-room .multi-actionbar,
+#screen-board.mode-multi-draw .multi-actionbar {
+  display: flex; flex: 0 0 auto;
+  gap: 16px; justify-content: center; align-items: center;
+  padding: 12px 16px;
+}
+#screen-board.mode-multi-room #btn-add-contribution,
+#screen-board.mode-multi-room #btn-exit-room,
+#screen-board.mode-multi-draw #btn-place,
+#screen-board.mode-multi-draw #btn-back-to-room { display: inline-flex; min-width: 160px; justify-content: center; }
+
+/* 描圖線稿選擇列：橫向捲動嘅縮圖 */
+.template-picker {
+  flex: 0 0 auto;
+  align-items: center; gap: 12px;
+  padding: 8px 12px;
+  overflow-x: auto;
+}
+.template-picker-label { font-size: 20px; color: var(--wood); white-space: nowrap; }
+.template-picker-row { display: flex; gap: 10px; }
+.template-chip {
+  flex: 0 0 auto;
+  width: 76px; height: 56px;
+  border: 3px solid var(--window-wood); border-radius: 8px;
+  background: #fff; cursor: pointer; padding: 0; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; color: var(--mountain-mist);
+}
+.template-chip img { width: 100%; height: 100%; object-fit: contain; }
+.template-chip.selected { border-color: var(--vermillion); box-shadow: 0 0 0 2px var(--vermillion); }

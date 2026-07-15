@@ -89,6 +89,7 @@
     zenPatternIndex: 0,    // 0:dot 1:grid 2:line 3:circle
     zenAcc: 0,             // 禪繞：沿筆劃累積的距離餘數，令圖案跨線段等距分佈
     strokePts: null,       // 共繪：當前一筆的座標點，放筆時整筆同步給房友
+    contributeMode: false, // 共繪新流程：喺個人畫布繪畫，唔逐筆同步（撳「放入」先當一個圖元交出去）
     isDrawing: false,
     lastPos: { x: 0, y: 0 },
     editing: false,
@@ -292,7 +293,10 @@
     },
 
     // 共繪：放筆時把整筆座標送去房間；房友與日後重返者都能重繪出這一筆。
+    // 註：新共繪流程改用「個人畫布繪畫→放入圖元」，個人繪畫階段 contributeMode=true
+    // 時唔會逐筆同步（避免未「放入」就已經飛咗去房間）。
     emitStroke() {
+      if (this.contributeMode) return;
       if (!board.isMulti() || !socket) return;
       if (!this.strokePts || this.strokePts.length < 1) return;
       socket.emit('stroke', {
@@ -1192,6 +1196,11 @@
     },
 
     switchMode(mode) {
+      // 由頂部分頁切換 = 離開任何共繪房間狀態
+      const sb = $('#screen-board');
+      sb.classList.remove('mode-multi-room', 'mode-multi-draw');
+      board.roomId = null;
+      painter.contributeMode = false;
       this.mode = mode;
       $$('.nav-tab').forEach((t) => t.classList.toggle('active', t.dataset.mode === mode));
       const map = {
@@ -1221,6 +1230,12 @@
       $('#btn-leave-board').addEventListener('click', () => this.leaveBoard());
       $('#btn-change-lineart').addEventListener('click', () => this.leaveBoard());
       $('#btn-save-image').addEventListener('click', () => this.saveImage());
+      // 共繪新流程按鈕
+      $('#btn-add-contribution').addEventListener('click', () => this.enterDrawView());
+      $('#btn-exit-room').addEventListener('click', () => this.exitRoom());
+      $('#btn-place').addEventListener('click', () => this.placeContribution());
+      $('#btn-back-to-room').addEventListener('click', () => this.backToRoom());
+      this.buildTemplatePicker();
       $('#brush-size').addEventListener('input', (e) => {
         painter.lineWidth = parseInt(e.target.value, 10);
       });
@@ -1287,6 +1302,11 @@
     clearPeers() { $('#peer-cursors').innerHTML = ''; },
 
     openBoard(bgImage) {
+      // 獨畫用：確保清走共繪嘅子模式 class 同狀態
+      const sb = $('#screen-board');
+      sb.classList.remove('mode-multi-room', 'mode-multi-draw');
+      painter.contributeMode = false;
+      $('#draw-template').hidden = true;
       board.clearAll();
       painter.ctx.clearRect(0, 0, painter.canvas.width, painter.canvas.height);
       const bg = $('#board-bg');
@@ -1311,6 +1331,148 @@
       scanController.stop(false);
       board.roomId = null;
       this.switchMode(this.mode === 'multi' ? 'multi' : 'single');
+    },
+
+    // ===== 共繪新流程（§12 重構）==========================================
+    // 房間視圖：只顯示大家「放入」嘅圖案（可揀／拖／縮放／刪除），
+    // 底部得「＋ 新增」同「退出」，唔可以喺主畫布直接畫。
+    enterRoomView() {
+      scanController.stop(false);
+      painter.contributeMode = false;
+      painter.editing = false;
+      painter.canvas.classList.remove('editing');
+      document.body.classList.remove('drawing-active');
+      // 房間視圖唔應該有任何 freehand：全部貢獻都係圖元，清走個人畫布殘留。
+      painter.ctx.clearRect(0, 0, painter.canvas.width, painter.canvas.height);
+      $('#btn-finish').hidden = true;
+      const bg = $('#board-bg');
+      if (this._roomBg) { bg.crossOrigin = 'anonymous'; bg.src = this._roomBg; bg.hidden = false; }
+      else bg.hidden = true;
+      $('#draw-template').hidden = true;
+      $('#room-banner').hidden = false;
+      const sb = $('#screen-board');
+      sb.classList.remove('mode-multi-draw');
+      sb.classList.add('mode-multi-room');
+      this.showScreen('#screen-board');
+    },
+
+    // 繪畫視圖：撳「＋ 新增」後進入。空白（透明）個人畫布 + 文房工具 +
+    // 可選半透明描圖線稿；底部得「放入」同「返回」。
+    enterDrawView() {
+      board.deselect();
+      painter.contributeMode = true;              // 個人繪畫階段唔逐筆同步
+      painter.ctx.clearRect(0, 0, painter.canvas.width, painter.canvas.height);
+      $('#board-bg').hidden = true;               // 個人畫布唔顯示房間背景
+      this.applyTemplate(this._selectedTemplate || null);
+      painter.openCanvas();                       // editing=true，可以開始畫
+      $('#btn-finish').hidden = true;             // 共繪唔用「封存作品」
+      const sb = $('#screen-board');
+      sb.classList.remove('mode-multi-room');
+      sb.classList.add('mode-multi-draw');
+      this.showScreen('#screen-board');
+    },
+
+    // 放入：將個人畫布嘅線條裁剪到筆跡範圍（去掉四周空白），匯出成透明底 PNG，
+    // 當一個可移動圖元交去房間。裁剪令圖案本身填滿圖元，唔會係一大片空白縮細。
+    placeContribution() {
+      const src = painter.canvas;
+      const iw = src.width, ih = src.height;
+      const data = src.getContext('2d').getImageData(0, 0, iw, ih).data;
+      let minX = iw, minY = ih, maxX = -1, maxY = -1;
+      for (let y = 0; y < ih; y++) {
+        for (let x = 0; x < iw; x++) {
+          if (data[(y * iw + x) * 4 + 3] > 10) {
+            if (x < minX) minX = x; if (x > maxX) maxX = x;
+            if (y < minY) minY = y; if (y > maxY) maxY = y;
+          }
+        }
+      }
+      if (maxX < 0) { catLogic.say('畫幾筆先至可以放入㗎～'); return; }
+      const pad = 14;
+      minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad);
+      maxX = Math.min(iw - 1, maxX + pad); maxY = Math.min(ih - 1, maxY + pad);
+      const cw = maxX - minX + 1, ch = maxY - minY + 1;
+      const out = document.createElement('canvas');
+      out.width = cw; out.height = ch;
+      out.getContext('2d').drawImage(src, minX, minY, cw, ch, 0, 0, cw, ch);
+      const dataURL = out.toDataURL('image/png');  // 透明底、只有線條
+      const widthPct = Math.max(14, Math.min(70, (cw / iw) * 100));
+      const el = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        img: dataURL,
+        x: 50, y: 50, width: widthPct,
+        date: chineseDate(),
+        elementName: '手繪',
+        source: 'contribution',
+      };
+      if (socket && board.isMulti()) {
+        // 交俾伺服器：會存入 room.elements 並廣播 element_added（連自己），
+        // 由 board.addElement 畫返出嚟 → 天然保存＋同步＋重返都見返。
+        socket.emit('add_element', { roomId: board.roomId, element: el });
+      } else {
+        board.addElement(el);
+      }
+      painter.contributeMode = false;
+      this.enterRoomView();
+      catLogic.say('放入咗！大家都見到喇');
+    },
+
+    // 退出：離開房間，返回共繪首頁。
+    exitRoom() {
+      const sb = $('#screen-board');
+      sb.classList.remove('mode-multi-room', 'mode-multi-draw');
+      board.roomId = null;
+      painter.contributeMode = false;
+      this.switchMode('multi');
+    },
+
+    // 返回：喺繪畫視圖撳「返回」，唔放入，直接返房間視圖。
+    backToRoom() {
+      painter.contributeMode = false;
+      this.enterRoomView();
+    },
+
+    // ---- 描圖線稿選擇（半透明鋪底）----
+    buildTemplatePicker() {
+      const row = $('#template-picker-row');
+      if (!row) return;
+      fetch('/api/linearts')
+        .then((r) => r.json())
+        .then((files) => {
+          row.innerHTML = '';
+          row.appendChild(this._templateChip(null, '空白'));
+          files.forEach((f) => {
+            const url = typeof f === 'string' ? '/linearts/' + encodeURIComponent(f) : f.url;
+            row.appendChild(this._templateChip(url, ''));
+          });
+        })
+        .catch(() => { row.innerHTML = ''; row.appendChild(this._templateChip(null, '空白')); });
+    },
+
+    _templateChip(url, label) {
+      const chip = document.createElement('button');
+      chip.className = 'template-chip' + (url === null ? ' blank' : '');
+      if (url === (this._selectedTemplate || null)) chip.classList.add('selected');
+      if (url) {
+        const img = document.createElement('img');
+        img.src = url;
+        chip.appendChild(img);
+      } else {
+        chip.textContent = label;
+      }
+      chip.addEventListener('click', () => {
+        this._selectedTemplate = url;
+        this.applyTemplate(url);
+        $$('#template-picker-row .template-chip').forEach((c) => c.classList.remove('selected'));
+        chip.classList.add('selected');
+      });
+      return chip;
+    },
+
+    applyTemplate(url) {
+      const t = $('#draw-template');
+      if (url) { t.crossOrigin = 'anonymous'; t.src = url; t.hidden = false; }
+      else { t.hidden = true; t.removeAttribute('src'); }
     },
 
     placeScanElement(selection) {
@@ -1712,8 +1874,11 @@
 
       socket.on('room_created', ({ roomId, bgImage }) => {
         board.roomId = roomId;
+        this._roomBg = bgImage || null;
         $('#room-id-label').textContent = roomId;
-        this.openBoard(bgImage);
+        board.clearAll();
+        painter.ctx.clearRect(0, 0, painter.canvas.width, painter.canvas.height);
+        this.enterRoomView();                 // 開房即入房間視圖（新增/退出）
         this._pendingJoinRoomId = null;
         this.rememberRoom(roomId);
         catLogic.say('開房成功，號碼係 ' + roomId.split('').join(' '));
@@ -1721,11 +1886,14 @@
 
       socket.on('init_room', ({ id, bgImage, elements, strokes }) => {
         board.roomId = id;
+        this._roomBg = bgImage || null;
         $('#room-id-label').textContent = id;
-        this.openBoard(bgImage);
-        // 先重繪房間已有的自由筆觸（毛筆／禪繞／擦膠），再放置圖元／作品，
-        // 令重返房間時見返之前大家畫過的內容，而唔係得返空白畫布。
-        (strokes || []).forEach((s) => painter.drawStroke(s));
+        board.clearAll();
+        painter.ctx.clearRect(0, 0, painter.canvas.width, painter.canvas.height);
+        this.enterRoomView();                 // 重返即入房間視圖
+        // 新共繪模型：所有貢獻都係「放入」嘅圖元，重返時逐個畫返出嚟。
+        // （strokes 參數保留作兼容，但新流程唔會再產生自由筆觸，故不再重播。）
+        void strokes;
         (elements || []).forEach((el) => board.addElement(el));
         this._pendingJoinRoomId = null;
         this.rememberRoom(id);

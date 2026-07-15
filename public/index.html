@@ -159,6 +159,7 @@
             <button id="window-latch" title="清空畫布"></button>
             <div class="canvas-stack">
               <img id="board-bg" alt="線稿" hidden />
+              <img id="draw-template" alt="描圖線稿" hidden />
               <div id="elements-layer"></div>
               <canvas id="paint-canvas" width="1200" height="800"></canvas>
               <div id="scan-placement-preview" hidden></div>
@@ -194,6 +195,20 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- 共繪：描圖線稿選擇（新增／繪畫視圖顯示）— 半透明鋪底俾長者照住描 -->
+      <div class="template-picker" id="template-picker">
+        <span class="template-picker-label">描圖線稿：</span>
+        <div class="template-picker-row" id="template-picker-row"></div>
+      </div>
+
+      <!-- 共繪：底部操作列。房間視圖顯示「新增／退出」；繪畫視圖顯示「放入／返回」 -->
+      <div class="multi-actionbar" id="multi-actionbar">
+        <button class="big-btn gold" id="btn-add-contribution">＋ 新增</button>
+        <button class="back-btn" id="btn-exit-room">退出</button>
+        <button class="big-btn gold" id="btn-place">放入</button>
+        <button class="back-btn" id="btn-back-to-room">返回</button>
       </div>
 
       <!-- Seal ceremony overlay (§4.3.8) -->
