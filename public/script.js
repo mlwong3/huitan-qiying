@@ -1091,11 +1091,20 @@
         e.preventDefault(); e.stopPropagation();
         resizing = true;
         const rect = this.layer.getBoundingClientRect();
+        // 元素以 translate(-50%,-50%) 置中，縮放手掣喺右下角＝「中心 + 半闊」
+        // 嘅位置。用 style.left（喺成個拖曳過程都唔會變）算出穩定嘅中心點，
+        // 先至攞 pointer 距中心嘅 x 差（乘 2 還原做全闊）。以前用
+        // getBoundingClientRect().left（會隨闊度即時改變）做基準，形成回饋
+        // 迴圈——一撳到手掣就即刻爆大一倍，越拖越誇張，正正係「容易過大、
+        // 難以操作」嘅成因。
+        const centerX = rect.left + (parseFloat(node.style.left) / 100) * rect.width;
         const onMove = (ev) => {
+          ev.preventDefault();
           const pt = pointer(ev);
-          const center = node.getBoundingClientRect();
-          const newW = ((pt.x - center.left) / rect.width) * 100 * 2;
-          if (newW > 5) node.style.width = newW + '%';
+          const halfWidthPx = pt.x - centerX;
+          let newW = (halfWidthPx * 2 / rect.width) * 100;
+          newW = Math.max(5, Math.min(90, newW));
+          node.style.width = newW + '%';
         };
         const onUp = () => {
           document.removeEventListener('mousemove', onMove);
