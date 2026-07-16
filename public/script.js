@@ -1191,7 +1191,7 @@
       this.bindBoard();
       this.bindAdmin();
       this.bindMulti();
-      this.loadLineartsInto('#single-canvas-grid', true);
+      this.loadLineartsInto('#single-canvas-grid', true, 'canvas');
       this.renderMyWorks();
       this.renderMyRooms();
       this.bindSocket();
@@ -1441,11 +1441,11 @@
       this.enterRoomView();
     },
 
-    // ---- 描圖線稿選擇（半透明鋪底）----
+    // ---- 描圖線稿選擇（半透明鋪底）：淨係揀「線稿」分類，唔會夾雜「畫布」圖片 ----
     buildTemplatePicker() {
       const row = $('#template-picker-row');
       if (!row) return;
-      fetch('/api/linearts')
+      fetch('/api/linearts?category=lineart')
         .then((r) => r.json())
         .then((files) => {
           row.innerHTML = '';
@@ -1744,9 +1744,11 @@
     },
 
     // ----- line-art gallery ----------------------------------------------
-    loadLineartsInto(gridSel, withBlank) {
+    // category: 'canvas'（揀紙開畫／開房用）｜ 'lineart'｜省略＝全部（掌櫃用）
+    loadLineartsInto(gridSel, withBlank, category) {
       const grid = $(gridSel);
-      fetch('/api/linearts')
+      const qs = category ? '?category=' + encodeURIComponent(category) : '';
+      fetch('/api/linearts' + qs)
         .then((r) => r.json())
         .then((files) => {
           grid.innerHTML = '';
@@ -1789,7 +1791,7 @@
     bindMulti() {
       $('#btn-new-room').addEventListener('click', () => {
         this.showScreen('#screen-multi-gallery');
-        this.loadLineartsInto('#multi-canvas-grid', true);
+        this.loadLineartsInto('#multi-canvas-grid', true, 'canvas');
       });
       $('#btn-join-room').addEventListener('click', () => {
         const code = $('#room-code-input').value.trim();
@@ -1805,8 +1807,13 @@
       socket.emit('create_room', { bgImage });
     },
 
-    // ----- §13 admin ------------------------------------------------------
+    // ----- §13 admin：畫布／線稿分類（§13.1）-------------------------------
+    CATEGORY_LABEL: { canvas: '畫布', lineart: '線稿' },
+
     bindAdmin() {
+      this._uploadCategory = 'canvas';
+      this._adminFilter = '';
+
       $('#btn-admin-login').addEventListener('click', () => {
         const pass = $('#admin-pass').value;
         fetch('/api/admin/check', {
@@ -1827,6 +1834,23 @@
           });
       });
 
+      // 上載分類（畫布／線稿）同篩選分類（全部／畫布／線稿）都用同一款
+      // chip 切換元件，抽做一個共用 bind 函數。
+      const bindChips = (containerSel, onPick) => {
+        $$(containerSel + ' .category-chip').forEach((chip) => {
+          chip.addEventListener('click', () => {
+            $$(containerSel + ' .category-chip').forEach((c) => c.classList.remove('selected'));
+            chip.classList.add('selected');
+            onPick(chip.dataset.category);
+          });
+        });
+      };
+      bindChips('#upload-category-pick', (cat) => { this._uploadCategory = cat; });
+      bindChips('#admin-filter-pick', (cat) => {
+        this._adminFilter = cat;
+        this.renderAdminLinearts(cat);
+      });
+
       $('#upload-form').addEventListener('submit', (e) => {
         e.preventDefault();
         const file = $('#lineart-file').files[0];
@@ -1834,47 +1858,72 @@
         const fd = new FormData();
         fd.append('file', file);
         fd.append('password', this._adminPass);
+        fd.append('category', this._uploadCategory);
         $('#upload-status').textContent = '上傳中…';
         fetch('/api/upload/lineart', { method: 'POST', body: fd })
           .then((r) => r.json())
           .then((res) => {
             $('#upload-status').textContent = res.success ? '上傳成功！' : (res.msg || '上傳失敗');
-            if (res.success) { $('#lineart-file').value = ''; this.renderAdminLinearts(); }
+            if (res.success) { $('#lineart-file').value = ''; this.renderAdminLinearts(this._adminFilter); }
           });
       });
     },
 
-    renderAdminLinearts() {
+    renderAdminLinearts(filterCategory) {
       const grid = $('#admin-lineart-grid');
-      fetch('/api/linearts').then((r) => r.json()).then((files) => {
+      const qs = filterCategory ? '?category=' + encodeURIComponent(filterCategory) : '';
+      fetch('/api/linearts' + qs).then((r) => r.json()).then((files) => {
         grid.innerHTML = '';
         files.forEach((f) => {
-          const name = typeof f === 'string' ? f : f.name;
-          const url = typeof f === 'string' ? '/linearts/' + encodeURIComponent(f) : f.url;
+          const name = f.name;
+          const url = f.url;
+          const category = f.category || 'canvas';
+          const otherCategory = category === 'canvas' ? 'lineart' : 'canvas';
           const card = document.createElement('div');
-          card.className = 'gallery-card';
+          card.className = 'gallery-card admin-card';
           const img = document.createElement('img');
           img.src = url;
+          const badge = document.createElement('span');
+          badge.className = 'category-badge category-badge-' + category;
+          badge.textContent = this.CATEGORY_LABEL[category];
           const del = document.createElement('button');
           del.className = 'del-badge';
           del.textContent = '×';
+          del.title = '刪除';
           del.addEventListener('click', () => this.deleteLineart(name));
+          const swap = document.createElement('button');
+          swap.className = 'recategorize-badge';
+          swap.textContent = '轉為' + this.CATEGORY_LABEL[otherCategory];
+          swap.title = '轉為' + this.CATEGORY_LABEL[otherCategory];
+          swap.addEventListener('click', () => this.recategorizeLineart(name, otherCategory));
           card.appendChild(img);
+          card.appendChild(badge);
           card.appendChild(del);
+          card.appendChild(swap);
           grid.appendChild(card);
         });
       });
     },
 
     deleteLineart(filename) {
-      if (!confirm('確定刪除「' + filename + '」？')) return;
+      if (!confirm('確定刪除呢張圖？')) return;
       fetch('/api/admin/delete/lineart', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: this._adminPass, filename }),
       })
         .then((r) => r.json())
-        .then((res) => { if (res.success) this.renderAdminLinearts(); else alert(res.msg || '刪除失敗'); });
+        .then((res) => { if (res.success) this.renderAdminLinearts(this._adminFilter); else alert(res.msg || '刪除失敗'); });
+    },
+
+    recategorizeLineart(filename, category) {
+      fetch('/api/admin/recategorize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: this._adminPass, filename, category }),
+      })
+        .then((r) => r.json())
+        .then((res) => { if (res.success) this.renderAdminLinearts(this._adminFilter); else alert(res.msg || '轉換失敗'); });
     },
 
     // ----- §8 socket events ----------------------------------------------
@@ -1939,8 +1988,9 @@
         alert(msg);
       });
       socket.on('refresh_linearts', () => {
-        this.loadLineartsInto('#single-canvas-grid', true);
-        if (!$('#admin-panel').hidden) this.renderAdminLinearts();
+        this.loadLineartsInto('#single-canvas-grid', true, 'canvas');
+        this.buildTemplatePicker();
+        if (!$('#admin-panel').hidden) this.renderAdminLinearts(this._adminFilter);
       });
     },
 

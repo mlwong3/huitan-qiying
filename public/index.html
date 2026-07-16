@@ -235,22 +235,31 @@
             </div>
             <div id="admin-panel" hidden>
               <form id="upload-form" class="upload-form">
+                <div class="category-pick" id="upload-category-pick" role="radiogroup" aria-label="上載分類">
+                  <button type="button" class="category-chip selected" data-category="canvas">畫布</button>
+                  <button type="button" class="category-chip" data-category="lineart">線稿</button>
+                </div>
                 <label class="file-pick">
                   <input type="file" id="lineart-file" accept="image/*" />
                   <span>揀圖片</span>
                 </label>
-                <button class="big-btn gold" type="submit">上傳線稿</button>
+                <button class="big-btn gold" type="submit">上傳</button>
                 <span id="upload-status" class="hint"></span>
               </form>
+              <div class="category-pick" id="admin-filter-pick" role="radiogroup" aria-label="篩選分類">
+                <button type="button" class="category-chip selected" data-category="">全部</button>
+                <button type="button" class="category-chip" data-category="canvas">畫布</button>
+                <button type="button" class="category-chip" data-category="lineart">線稿</button>
+              </div>
               <div class="gallery-grid" id="admin-lineart-grid"></div>
             </div>
           </div>
           <div class="portal-card info-card">
             <h2>可管理項目</h2>
             <ul class="manage-list">
-              <li>上傳線稿</li>
-              <li>刪除舊畫紙</li>
-              <li>整理主題分類</li>
+              <li>上傳畫布／線稿</li>
+              <li>刪除舊畫布／線稿</li>
+              <li>轉換已上載圖片嘅分類</li>
             </ul>
           </div>
         </div>

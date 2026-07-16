@@ -75,16 +75,21 @@ app.use('/api/', apiLimiter);
 app.use(['/api/admin', '/api/upload'], adminLimiter);
 
 // --- 7. API specification --------------------------------------------------
-// 7.1 GET /api/linearts -> [{ name, url }]
+// 7.1 GET /api/linearts?category=canvas|lineart -> [{ name, url, category }]
+// 冇帶 category 就傳晒全部（掌櫃管理面板用）；帶咗就淨係傳嗰個分類
+// （揀紙畫廊用 canvas；共繪描圖線稿用 lineart）。
 app.get('/api/linearts', async (req, res) => {
   try {
-    res.json(await storage.list());
+    const category = [storage.CATEGORY_CANVAS, storage.CATEGORY_LINEART].includes(req.query.category)
+      ? req.query.category
+      : undefined;
+    res.json(await storage.list(category));
   } catch (e) {
     res.json([]);
   }
 });
 
-// 7.2 POST /api/upload/lineart
+// 7.2 POST /api/upload/lineart（表單多咗 category 欄位：canvas｜lineart）
 app.post('/api/upload/lineart', upload.single('file'), async (req, res) => {
   if (req.body.password !== ADMIN_PASSWORD) {
     return res.status(403).json({ success: false, msg: '密碼錯誤' });
@@ -93,7 +98,10 @@ app.post('/api/upload/lineart', upload.single('file'), async (req, res) => {
   try {
     const utf8Name = Buffer.from(req.file.originalname, 'latin1').toString('utf8'); // §16.2
     const safe = utf8Name.replace(/[/\\]/g, '_');
-    const saved = await storage.save(req.file.buffer, `${Date.now()}-${safe}`, req.file.mimetype);
+    const category = req.body.category === storage.CATEGORY_LINEART
+      ? storage.CATEGORY_LINEART
+      : storage.CATEGORY_CANVAS;
+    const saved = await storage.save(req.file.buffer, `${Date.now()}-${safe}`, req.file.mimetype, category);
     io.emit('refresh_linearts');
     res.json({ success: true, file: saved });
   } catch (e) {
@@ -115,6 +123,25 @@ app.post('/api/admin/delete/lineart', async (req, res) => {
   if (!ok) return res.status(404).json({ success: false, msg: '檔案不存在' });
   io.emit('refresh_linearts');
   res.json({ success: true });
+});
+
+// 7.3.1 POST /api/admin/recategorize — 掌櫃「轉為畫布／轉為線稿」，
+// 唔使刪除再重新上載就可以改一張已上載圖片嘅分類。
+app.post('/api/admin/recategorize', async (req, res) => {
+  const { password, filename, category } = req.body;
+  if (password !== ADMIN_PASSWORD) {
+    return res.status(403).json({ success: false, msg: '密碼錯誤' });
+  }
+  if (!filename || filename.includes('/') || filename.includes('..') || filename.includes('\\')) {
+    return res.status(400).json({ success: false, msg: '非法檔名' });
+  }
+  if (![storage.CATEGORY_CANVAS, storage.CATEGORY_LINEART].includes(category)) {
+    return res.status(400).json({ success: false, msg: '分類無效' });
+  }
+  const saved = await storage.recategorize(filename, category);
+  if (!saved) return res.status(404).json({ success: false, msg: '檔案不存在' });
+  io.emit('refresh_linearts');
+  res.json({ success: true, file: saved });
 });
 
 // 7.4 POST /api/admin/check

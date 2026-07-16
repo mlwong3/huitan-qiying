@@ -5,6 +5,38 @@
 
 ---
 
+## [3.12.0] — 2026-07-16 · 掌櫃上載圖片分為「畫布」與「線稿」兩類
+
+### Added
+- **掌櫃上載表單新增分類揀選**：上載時揀「畫布」或「線稿」（預設畫布）。
+- **掌櫃畫廊顯示分類標籤**＋**篩選標籤**（全部／畫布／線稿）。
+- **一鍵轉換分類**：已上載嘅圖片毋須刪除重上，喺卡片撳「轉為畫布」／「轉為線稿」即改。
+
+### Changed
+- **揀紙畫廊（獨畫「揀一張紙開始」、共繪「揀一張紙開房」）淨係顯示「畫布」分類**嘅圖片。
+- **共繪個人畫布嘅半透明描圖線稿列淨係顯示「線稿」分類**嘅圖片，唔會再夾雜畫布裝飾圖。
+- 舊有（呢個功能推出前）上載嘅圖片冇分類標記，一律當「畫布」處理，行為同以前一致
+  （會繼續喺揀紙畫廊出現；如想用嚟做描圖線稿，掌櫃可撳「轉為線稿」一鍵轉換）。
+
+### Technical
+- `storage.js`：以檔名前綴 marker（`canvas__` / `lineart__`）記住分類，唔使另開資料庫；
+  `list(category)` 可篩選；新增 `recategorize(name, newCategory)`（bucket 用 copy+delete
+  模擬 rename，本機磁碟直接 rename）。
+- `server.js`：`GET /api/linearts?category=` 篩選；`POST /api/upload/lineart` 接受
+  `category` 表單欄位；新增 `POST /api/admin/recategorize`。
+- `public/script.js`：`loadLineartsInto` 加 category 參數；獨畫／共繪揀紙畫廊傳
+  `'canvas'`，`buildTemplatePicker` 傳 `'lineart'`；掌櫃面板加分類 chip 切換、
+  分類標籤、轉換分類按鈕。
+- 本機端對端驗證：上載分類正確存檔＋回傳、篩選正確、UI chip／badge／轉換按鈕
+  真實點擊全部生效、揀紙畫廊與描圖線稿列交叉驗證分類互不重疊、密碼驗證守住
+  reclassify／delete、圖片經 marker 命名後仍可正常串流（HTTP 200）、舊檔（冇
+  marker）向下兼容預設「畫布」，全部通過，零 console error。
+
+### 檔案
+- `storage.js`、`server.js`、`public/index.html`、`public/script.js`、`public/style.css`
+
+---
+
 ## [3.11.0] — 2026-07-16 · 共繪模式重構：新增／放入貢獻式共繪 + 半透明描圖線稿
 
 ### Changed
